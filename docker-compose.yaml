@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  app:
+    image: "${DC_BACK_IMAGE_NAME}:${DC_BACK_IMAGE_TAG}"
+    ports:
+      - "${DC_BACK_APP_PORT}:3000"
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URI: amqp://guest:guest@rabbitmq:5672
+    networks:
+      - backend_network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    ports:
+      - 5672:5672 # AMQP
+      - 15672:15672 # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - backend_network
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  backend_network:
