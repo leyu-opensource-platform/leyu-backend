@@ -24,7 +24,7 @@ export class LanguageService {
     );
   }
   async onModuleInit() {
-    // await this.createEthiopianLanguage();
+    await this.createEthiopianLanguage();
   }
   // Create Basic Ethiopian Language on Init
   async createEthiopianLanguage(): Promise<void> {

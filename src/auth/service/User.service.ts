@@ -693,7 +693,8 @@ export class UserService {
    * Creates a super admin user if one does not exist.
    * Creates all the roles if they do not exist.
    * Creates a super admin user with the id '15bc2137-0b08-449e-8e7e-c68f2e830bd5'
-   * and the password 'SuperAdmin123'.
+   * , the email 'guest@gmail.com', the role 'SuperAdmin',
+   * and the password 'guest@1234'.
    * @returns A promise resolving to nothing.
    */
   private async createSuperAdminIfNotExists() {
@@ -725,7 +726,7 @@ export class UserService {
           description: 'Super Admin Role',
         });
       }
-      const hashedPassword = await hashPassword('SuperAdmin123');
+      const hashedPassword = await hashPassword('guest@1234');
       const superAdmin: User = this.userRepository.create({
         id: '15bc2137-0b08-449e-8e7e-c68f2e830bd5',
         first_name: 'SuperAdmin',
@@ -733,7 +734,7 @@ export class UserService {
         last_name: 'SuperAdmin',
         gender: 'Female',
         phone_number: '',
-        email: 'admin@icog.et',
+        email: 'guest@gmail.com',
         password: hashedPassword,
         role: role || undefined,
       });
