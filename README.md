@@ -193,7 +193,12 @@ npm run test:cov
 # Watch mode
 npm run test:watch
 ```
-
+### Test Account 
+```bash
+ # Super Admin
+username - guest@gmail.com
+password - guest@1234
+```
 ### Code Quality
 
 ```bash
