@@ -128,7 +128,7 @@ export class DatasetConsumer {
       );
       // Send Notification to the user
       await this.notificationService.create({
-        user_id: dataSet.reviewer.id,
+        user_id: dataSet.contributor_id,
         title: 'Task Rejected',
         message:
           'Your task with code ' +
