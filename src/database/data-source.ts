@@ -10,9 +10,9 @@ export const dataSourceOptions: PostgresConnectionOptions & SeederOptions = {
   url: configService.get<string>('DATABASE_URL'), // Use ConfigService process.env.DATABASE_URL,
   schema: schema,
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  migrations: [__dirname + '/../migrations/*{.ts,.js}'], //
+  migrations: [__dirname + '/migrations/*{.ts,.js}'],
   seeds: [__dirname + '/../seeds/*{.ts,.js}'], //
-  synchronize: true, //process.env.NODE_ENV === 'development',   //true, // Set this to false for production use
+  synchronize: false,
   connectTimeoutMS: 5000,
   logging: false,
 };
