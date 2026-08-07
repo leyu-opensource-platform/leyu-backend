@@ -21,12 +21,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message =
+    let message =
       exception instanceof HttpException
         ? exception.getResponse()['message'] || exception.message
         : 'Internal server error';
 
-    if (message instanceof Array) {
+    if (Array.isArray(message)) {
+      message = message.join(', ');
     }
     response.status(status).json({
       message,

@@ -448,7 +448,13 @@ export class TaskService {
     taskId: string,
     instructionId: string,
     taskData: UpdateTaskInstructionDto,
-  ): Promise<TaskInstruction | any> {
+  ): Promise<
+    | TaskInstruction
+    | QATaskInstruction
+    | ReviewerTaskInstruction
+    | null
+    | undefined
+  > {
     const task = await this.taskRepository.findOne({
       where: { id: taskId },
       relations: {
@@ -716,7 +722,7 @@ export class TaskService {
     task_id: string,
     contributor_ids: string[],
     queryRunner: QueryRunner,
-  ): Promise<UserTask[] | any> {
+  ): Promise<UserTask[]> {
     const task: Task | null = await this.findOne({
       where: { id: task_id },
       relations: { userToTasks: true },
@@ -1596,7 +1602,7 @@ export class TaskService {
       .addGroupBy('reviewerInstruction.id')
       .addGroupBy('taskRequirement.dialects')
       .addGroupBy('payment.reviewer_credit_per_microtask')
-      .orderBy('task.created_date','DESC')
+      .orderBy('task.created_date', 'DESC')
       .setParameters({
         reviewerId,
       })

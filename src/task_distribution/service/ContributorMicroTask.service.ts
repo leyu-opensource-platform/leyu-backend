@@ -1,8 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, In, IsNull, LessThan, Not, QueryRunner, Repository } from 'typeorm';
+import {
+  FindOptionsWhere,
+  In,
+  LessThan,
+  Not,
+  QueryRunner,
+  Repository,
+} from 'typeorm';
 import { ContributorMicroTasks } from '../enitities/ContributorMicroTasks.entity';
-import { PaginationService } from 'src/common/service/pagination.service';
 import { QueryOptions } from 'src/utils/queryOption.util';
 import { ContributorMicroTasksConstantStatus } from 'src/utils/constants/ContributorMicroTasks.constant';
 import { UserService } from 'src/auth/service/User.service';
@@ -10,7 +16,7 @@ import { PaginationDto } from 'src/common/dto/Pagination.dto';
 import { User } from 'src/auth/entities/User.entity';
 import { paginate, PaginatedResult } from 'src/utils/paginate.util';
 import { Task } from 'src/project/entities/Task.entity';
-import { Cron ,CronExpression} from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { MicroTaskStatisticsService } from './MicroTaskStatistics.service';
 import { UserScoreService } from 'src/auth/service/UserScore.service';
 
@@ -19,14 +25,14 @@ export class ContributorMicroTaskService {
   constructor(
     @InjectRepository(ContributorMicroTasks)
     private readonly contributorMicroTaskRepository: Repository<ContributorMicroTasks>,
-    private readonly microTaskStatisticsService : MicroTaskStatisticsService,
+    private readonly microTaskStatisticsService: MicroTaskStatisticsService,
     private readonly userService: UserService,
     private readonly userScoreService: UserScoreService,
   ) {}
 
   // async onModuleInit() {
-  //   await this.cronToExpireAssignedTasks(); 
-  // } 
+  //   await this.cronToExpireAssignedTasks();
+  // }
 
   async findAllUnExpiredAssignments(
     queryOption: QueryOptions<ContributorMicroTasks>,
@@ -66,7 +72,6 @@ export class ContributorMicroTaskService {
   async findOne(
     query: QueryOptions<ContributorMicroTasks>,
   ): Promise<ContributorMicroTasks | null> {
-   
     return this.contributorMicroTaskRepository.findOne(query);
   }
 
@@ -159,62 +164,67 @@ export class ContributorMicroTaskService {
     }
   }
   @Cron(CronExpression.EVERY_6_HOURS)
-  async cronToExpireAssignedTasks(){
+  async cronToExpireAssignedTasks() {
     const expiredTasks = await this.contributorMicroTaskRepository.find({
       where: {
-        status: Not(In([
-          ContributorMicroTasksConstantStatus.EXPIRED,
-          ContributorMicroTasksConstantStatus.COMPLETED
-        ])),
-        dead_line: LessThan(new Date())
-      }
+        status: Not(
+          In([
+            ContributorMicroTasksConstantStatus.EXPIRED,
+            ContributorMicroTasksConstantStatus.COMPLETED,
+          ]),
+        ),
+        dead_line: LessThan(new Date()),
+      },
     });
     // update the microtask statistics
-    let microTasksToBeRemoved:{
-      micro_task_id:string,
-      no_of_assignments:number,
-      no_of_male:number,
-      no_of_female:number
-
-    }[]=[];
+    const microTasksToBeRemoved: {
+      micro_task_id: string;
+      no_of_assignments: number;
+      no_of_male: number;
+      no_of_female: number;
+    }[] = [];
     for (const task of expiredTasks) {
-      const expiredMicroTasks=task.micro_task_ids.slice(task.current_batch,task.micro_task_ids.length)
-      console.log("gender",task.gender)
-      const genderIsFemale=task.gender === 'Female';
-      const genderIsMale=task.gender === 'Male';
+      const expiredMicroTasks = task.micro_task_ids.slice(
+        task.current_batch,
+        task.micro_task_ids.length,
+      );
+      console.log('gender', task.gender);
+      const genderIsFemale = task.gender === 'Female';
+      const genderIsMale = task.gender === 'Male';
       // console.log("genderIsMale",genderIsMale)
       // console.log("genderIsFemale",genderIsFemale)
       for (const microtask of expiredMicroTasks) {
-          const mE=microTasksToBeRemoved.find((m) => m.micro_task_id === microtask);
-          if(mE){
-            mE.no_of_assignments++;
-            if (genderIsMale) {
-              mE.no_of_male++;
-            }
-             if (genderIsFemale) {
-             mE.no_of_female++;
-            }
-          }else{
-          microTasksToBeRemoved.push({
-            micro_task_id:microtask,no_of_assignments:1,
-            no_of_male:task.gender === 'Male'?1:0,
-            no_of_female:task.gender === 'Female'?1:0,
-          });
+        const mE = microTasksToBeRemoved.find(
+          (m) => m.micro_task_id === microtask,
+        );
+        if (mE) {
+          mE.no_of_assignments++;
+          if (genderIsMale) {
+            mE.no_of_male++;
           }
+          if (genderIsFemale) {
+            mE.no_of_female++;
+          }
+        } else {
+          microTasksToBeRemoved.push({
+            micro_task_id: microtask,
+            no_of_assignments: 1,
+            no_of_male: task.gender === 'Male' ? 1 : 0,
+            no_of_female: task.gender === 'Female' ? 1 : 0,
+          });
+        }
       }
     }
-    console.log("MicroTasks To Be Removed",microTasksToBeRemoved.slice(0,10));
-    await this.microTaskStatisticsService.reduceAssignmentForExpiredTasks(microTasksToBeRemoved);
+    console.log('MicroTasks To Be Removed', microTasksToBeRemoved.slice(0, 10));
+    await this.microTaskStatisticsService.reduceAssignmentForExpiredTasks(
+      microTasksToBeRemoved,
+    );
     for (const task of expiredTasks) {
-      await this.contributorMicroTaskRepository.update(
-        task.id,
-        {
-          status: ContributorMicroTasksConstantStatus.EXPIRED,
-        },
-      );
+      await this.contributorMicroTaskRepository.update(task.id, {
+        status: ContributorMicroTasksConstantStatus.EXPIRED,
+      });
       await this.userScoreService.reduceNoneSubmitScore([task.contributor_id]);
     }
-
   }
   /**
    * This method will get the distribution statistics of contributors for a task.
@@ -368,7 +378,7 @@ export class ContributorMicroTaskService {
   }
   async findAll(
     query: FindOptionsWhere<ContributorMicroTasks>,
-  ): Promise<ContributorMicroTasks[]> {Cron
+  ): Promise<ContributorMicroTasks[]> {
     return this.contributorMicroTaskRepository.find({
       where: {
         ...query,
@@ -376,7 +386,7 @@ export class ContributorMicroTaskService {
       },
     });
   }
-  async getContributorsPendingAndInProgressTasks():Promise<any> {
+  async getContributorsPendingAndInProgressTasks(): Promise<any> {
     const contributorMicroTasks = await this.contributorMicroTaskRepository
       .createQueryBuilder('cmt')
 
@@ -387,7 +397,6 @@ export class ContributorMicroTaskService {
         'contributor',
         'contributor.id = cmt.contributor_id',
       )
-       
 
       // join task table
       .leftJoinAndMapOne('cmt.task', Task, 'task', 'task.id = cmt.task_id')
