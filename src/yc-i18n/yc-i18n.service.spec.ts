@@ -1,12 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { YcI18nService } from './yc-i18n.service';
+import { I18nService } from 'nestjs-i18n';
 
 describe('YcI18nService', () => {
   let service: YcI18nService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [YcI18nService],
+      providers: [
+        YcI18nService,
+        { provide: I18nService, useValue: { translate: jest.fn() } },
+      ],
     }).compile();
 
     service = module.get<YcI18nService>(YcI18nService);
