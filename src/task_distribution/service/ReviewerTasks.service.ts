@@ -35,7 +35,7 @@ import { DataSetDetailRto } from 'src/data_set/rto/DataSet.rto';
 export class DataSetWithReviewInfo extends DataSet {
   data_set_review_id: string;
   review_status: string;
-  dead_line:Date
+  dead_line: Date;
 }
 @Injectable()
 export class ReviewerTaskService {
@@ -112,7 +112,7 @@ export class ReviewerTaskService {
         ...t.dataSet,
         data_set_review_id: t.id,
         review_status: t.status,
-        dead_line:t.expires_at
+        dead_line: t.expires_at,
       })),
       total,
       page,
@@ -146,7 +146,7 @@ export class ReviewerTaskService {
     // if (!userTask) {
     //   throw new UnauthorizedException(`User is not assigned to the task`);
     // }
-    const task= await this.taskService.findOne({
+    const task = await this.taskService.findOne({
       where: { id: task_id },
       relations: { taskType: true },
     });
@@ -220,14 +220,18 @@ export class ReviewerTaskService {
     if (dataSetReview.status !== 'pending') {
       throw new BadRequestException('data set already rejected');
     }
-    const membership=await this.userTaskService.findOne({
-      where:{user_id: reviewerId, task_id:dataSetReview.task_id},
-    })
-    if(!membership){
-      throw new UnauthorizedException("Reviewer is no longer actively assigned to the task");
+    const membership = await this.userTaskService.findOne({
+      where: { user_id: reviewerId, task_id: dataSetReview.task_id },
+    });
+    if (!membership) {
+      throw new UnauthorizedException(
+        'Reviewer is no longer actively assigned to the task',
+      );
     }
     if (membership.status !== UserTaskStatus.ACTIVE) {
-      throw new UnauthorizedException("Reviewer is no longer actively assigned to the task");
+      throw new UnauthorizedException(
+        'Reviewer is no longer actively assigned to the task',
+      );
     }
     await manager.update(DataSetReview, dataSetReviewId, {
       status: 'rejected',
@@ -274,7 +278,6 @@ export class ReviewerTaskService {
     annotationIds?: string[],
     is_uncertain?: boolean,
   ): Promise<void> {
-    
     const manager = queryRunner.manager;
 
     const dataSetReview = await manager.findOne(DataSetReview, {
@@ -292,14 +295,18 @@ export class ReviewerTaskService {
       throw new BadRequestException('data set already rejected');
     }
 
-    const membership=await this.userTaskService.findOne({
-      where:{user_id: reviewerId, task_id:dataSetReview.task_id},
-    })
-    if(!membership){
-      throw new UnauthorizedException("Reviewer is no longer actively assigned to the task");
+    const membership = await this.userTaskService.findOne({
+      where: { user_id: reviewerId, task_id: dataSetReview.task_id },
+    });
+    if (!membership) {
+      throw new UnauthorizedException(
+        'Reviewer is no longer actively assigned to the task',
+      );
     }
     if (membership.status !== UserTaskStatus.ACTIVE) {
-      throw new UnauthorizedException("Reviewer is no longer actively assigned to the task");
+      throw new UnauthorizedException(
+        'Reviewer is no longer actively assigned to the task',
+      );
     }
 
     // update normal columns
@@ -605,11 +612,18 @@ export class ReviewerTaskService {
   ): Promise<PaginatedResult<DataSetDetailRto>> {
     return this.dataSetService.getReviewDataSetsForQA(taskId, payload);
   }
-  async getOverloadedReviewers(limit = 50): Promise<{ reviewer_id: string; email: string; preferred_language: string; queue_count: number }[]> {
+  async getOverloadedReviewers(limit = 50): Promise<
+    {
+      reviewer_id: string;
+      email: string;
+      preferred_language: string;
+      queue_count: number;
+    }[]
+  > {
     const overloaded = await this.dataSetReviewRepository
       .createQueryBuilder('review')
       .select('review.reviewer_id', 'reviewer_id')
-      
+
       .addSelect('user.email', 'email')
       .addSelect('user.preferred_language', 'preferred_language')
       .addSelect('COUNT(review.id)', 'queue_count')
@@ -629,5 +643,5 @@ export class ReviewerTaskService {
       preferred_language: r.preferred_language,
       queue_count: Number(r.queue_count),
     }));
-}
+  }
 }

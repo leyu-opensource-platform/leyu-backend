@@ -60,8 +60,8 @@ export class PublisherService {
     title: string;
     message?: string;
     payload?: object;
-    target?:'email'|'push',
-    email?:string
+    target?: 'email' | 'push';
+    email?: string;
   }) {
     console.log('In publishNotificationEvent');
     return this.amqpConnection.publish(

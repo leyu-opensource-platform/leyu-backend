@@ -19,7 +19,12 @@ import { PaymentController } from './controller/Payment.controller';
     ConfigModule,
     TypeOrmModule.forFeature([Wallet, ScoreValue, Transaction]),
   ],
-  controllers: [WalletController, TransactionController, ScoreValueController, PaymentController],
+  controllers: [
+    WalletController,
+    TransactionController,
+    ScoreValueController,
+    PaymentController,
+  ],
   providers: [
     WalletService,
     ScoreValueService,

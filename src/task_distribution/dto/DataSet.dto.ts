@@ -41,7 +41,9 @@ export class ApproveDataSetDto {
   @IsOptional()
   annotationIds?: string[];
 
-  @ApiPropertyOptional({ description: 'Set true if reviewer is uncertain about this review' })
+  @ApiPropertyOptional({
+    description: 'Set true if reviewer is uncertain about this review',
+  })
   @IsBoolean()
   @IsOptional()
   is_uncertain?: boolean;

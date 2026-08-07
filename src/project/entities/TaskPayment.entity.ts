@@ -21,10 +21,10 @@ export class TaskPayment {
   @Column()
   task_id: string;
 
-  @Column({type:'float'})
+  @Column({ type: 'float' })
   contributor_credit_per_microtask: number;
 
-  @Column({type:'float'})
+  @Column({ type: 'float' })
   reviewer_credit_per_microtask: number;
 
   @Column({ nullable: true })

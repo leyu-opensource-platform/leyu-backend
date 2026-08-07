@@ -1,7 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { DataSource } from 'typeorm';
-import { seedCountries, seedRegions, seedRejectionTypes ,seedLanguages,seedDialects} from './seed.helper';
+import {
+  seedCountries,
+  seedRegions,
+  seedRejectionTypes,
+  seedLanguages,
+  seedDialects,
+} from './seed.helper';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

@@ -7,7 +7,6 @@ import { promises as fs } from 'fs';
 import { Job } from 'bullmq';
 import { CacheService } from 'src/cache/CacheService.service';
 export const unlinkAsync = promisify(unlink);
-import * as mm from 'music-metadata';
 
 @Processor('file-upload', {
   concurrency: 1, //  ensures one-by-one upload
@@ -34,52 +33,52 @@ export class FileUploadProcessor extends WorkerHost {
    * @param token - an optional token for authentication
    * @returns a promise that resolves to void
    */
- 
-async process(
-  job: Job<{
-    path: string;
-    filename: string;
-    mimetype: string;
-    dataSetId: string;
-  }>,
-  token?: string,
-): Promise<void> {
-  const data = job.data;
-  try {
-    await fs.access(data.path);
 
-    // ── Extract audio duration before streaming ──────────────────────────
-    // const metadata = await mm.parseFile(data.path,{
-    //   duration:true
-    // });
-    // const durationInSeconds = metadata.format.duration ?? 0;
-    const stream = createReadStream(data.path);
-    const folder = 'audios/';
+  async process(
+    job: Job<{
+      path: string;
+      filename: string;
+      mimetype: string;
+      dataSetId: string;
+    }>,
+    token?: string,
+  ): Promise<void> {
+    const data = job.data;
+    try {
+      await fs.access(data.path);
 
-    const result = await this.fileService.uploadAudioFiles(
-      data.filename,
-      stream,
-      data.mimetype,
-    );
+      // ── Extract audio duration before streaming ──────────────────────────
+      // const metadata = await mm.parseFile(data.path,{
+      //   duration:true
+      // });
+      // const durationInSeconds = metadata.format.duration ?? 0;
+      const stream = createReadStream(data.path);
+      const folder = 'audios/';
 
-    const filePath = folder + data.filename;
+      const result = await this.fileService.uploadAudioFiles(
+        data.filename,
+        stream,
+        data.mimetype,
+      );
 
-    await this.updateQueueStatus(data.dataSetId, 'completed', filePath);
+      const filePath = folder + data.filename;
 
-    // ── Persist duration ─────────────────────────────────────────────────
-    await this.dataSetService.update(data.dataSetId, {
-      // audio_duration:durationInSeconds,
-      file_path: filePath,
-    });
+      await this.updateQueueStatus(data.dataSetId, 'completed', filePath);
 
-    await unlinkAsync(data.path);
-  } catch (e) {
-    await this.dataSetService.update(data.dataSetId, {
-      queue_status: 'failed',
-    });
-    console.error(e);
+      // ── Persist duration ─────────────────────────────────────────────────
+      await this.dataSetService.update(data.dataSetId, {
+        // audio_duration:durationInSeconds,
+        file_path: filePath,
+      });
+
+      await unlinkAsync(data.path);
+    } catch (e) {
+      await this.dataSetService.update(data.dataSetId, {
+        queue_status: 'failed',
+      });
+      console.error(e);
+    }
   }
-}
   /**
    * Updates the queue status of a data set in the database.
    * If the data set is found, it will also update the cache.

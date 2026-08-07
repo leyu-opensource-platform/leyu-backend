@@ -1,18 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, In } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { MicroTaskStatisticsService } from './MicroTaskStatistics.service';
 import { ContributorMicroTaskService } from './ContributorMicroTask.service';
 import { PaginationDto } from 'src/common/dto/Pagination.dto';
 import { DataSetService } from 'src/data_set/service/DataSet.service';
 import { ReviewerTaskService } from './ReviewerTasks.service';
-import { UserTaskService } from 'src/project/service/UserTask.service';
 import { TaskDataSetReviewerDistributionRto } from '../rto/TaskMonitoring.rto';
 import { ContributorTaskProgressRto } from '../rto/Task.rto';
 import { ContributorMicroTasksConstantStatus } from 'src/utils/constants/ContributorMicroTasks.constant';
 import { Task } from 'src/project/entities/Task.entity';
 import { NotificationService } from 'src/common/service/Notification.service';
 import { I18nService } from 'nestjs-i18n';
-import { UserService } from 'src/auth/service/User.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 export interface ContributorMicroTaskResponse {
@@ -49,7 +47,7 @@ export interface ContributorInfo {
   first_name: string;
   last_name: string;
   phone_number: string;
-  preferred_language:string;
+  preferred_language: string;
 }
 
 export interface TaskInfo {
@@ -64,7 +62,7 @@ export class TaskDistributionMonitoringService {
     private readonly dataSetService: DataSetService,
     private readonly i18n: I18nService,
     private readonly reviewerTaskService: ReviewerTaskService,
-    private readonly notificationService:NotificationService,
+    private readonly notificationService: NotificationService,
     private readonly dataSource: DataSource,
   ) {}
   async getTaskDistributionStatistics(task_id: string) {
@@ -205,12 +203,12 @@ export class TaskDistributionMonitoringService {
       task &&
       ['text-audio', 'image-audio'].includes(task.taskType.task_type)
     ) {
-      totalSubmittedSeconds = dataSets.reduce((total, dataSet) => {
-        dataSet.audio_duration && (total += dataSet.audio_duration);
-        return total;
-      }, 0);
+      totalSubmittedSeconds = dataSets.reduce(
+        (total, dataSet) => total + (dataSet.audio_duration ?? 0),
+        0,
+      );
     }
-    const totalSubmittedHrs= totalSubmittedSeconds / 3600;
+    const totalSubmittedHrs = totalSubmittedSeconds / 3600;
     const underReviewDataSets = dataSets.filter(
       (dataSet) => dataSet.status === 'Pending',
     ).length;
@@ -225,59 +223,59 @@ export class TaskDistributionMonitoringService {
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_NOON)
-  async  notifyContributorsAndReviewersOnTheirProgress():Promise<void>{
-    await this.notifyContributorsOnTheirProgress()
-    await this.notifyReveiwersOnTheirProgress()
-    
+  async notifyContributorsAndReviewersOnTheirProgress(): Promise<void> {
+    await this.notifyContributorsOnTheirProgress();
+    await this.notifyReveiwersOnTheirProgress();
   }
 
   async notifyContributorsOnTheirProgress(): Promise<void> {
-    try{
-    const now = new Date();
+    try {
+      const now = new Date();
 
-    const activeTasks: ContributorMicroTaskResponse[]= await this.contributorMicroTaskService.getContributorsPendingAndInProgressTasks();
-    let missedContributorsNotificationsSent:string[]=[];
-    for (const task of activeTasks) {
-      if (!task.dead_line) continue;
+      const activeTasks: ContributorMicroTaskResponse[] =
+        await this.contributorMicroTaskService.getContributorsPendingAndInProgressTasks();
+      const missedContributorsNotificationsSent: string[] = [];
+      for (const task of activeTasks) {
+        if (!task.dead_line) continue;
 
-      const totalDuration  = task.dead_line.getTime() - task.created_date.getTime();
-      const elapsed        = now.getTime()            - task.created_date.getTime();
+        const totalDuration =
+          task.dead_line.getTime() - task.created_date.getTime();
+        const elapsed = now.getTime() - task.created_date.getTime();
 
-      // Skip tasks whose deadline has already passed
-      if (elapsed >= totalDuration) continue;
+        // Skip tasks whose deadline has already passed
+        if (elapsed >= totalDuration) continue;
 
-      const timeRatio     = elapsed / totalDuration;                      // 0 → 1
-      const progressRatio = task.current_batch / task.total_micro_tasks;  // 0 → 1
+        const timeRatio = elapsed / totalDuration; // 0 → 1
+        const progressRatio = task.current_batch / task.total_micro_tasks; // 0 → 1
 
-      // ── 1. HALF REMINDER ────────────────────────────────────────────────
-      //    OR:  50 % of time elapsed  ||  50 % of tasks done
-      const halfByTime     = timeRatio     >= 0.5 && timeRatio     < 0.9;
-      const halfByProgress = progressRatio >= 0.5 && progressRatio < 0.9;
+        // ── 1. HALF REMINDER ────────────────────────────────────────────────
+        //    OR:  50 % of time elapsed  ||  50 % of tasks done
+        const halfByTime = timeRatio >= 0.5 && timeRatio < 0.9;
+        const halfByProgress = progressRatio >= 0.5 && progressRatio < 0.9;
 
-      if (halfByTime || halfByProgress) {
-        // const alreadySent = await this.wasNotificationSent(
-        //   task.id,
-        //   NotificationType.HALF_REMINDER,
-        // );
-        // if (!alreadySent) {
-        const title =
-          this.i18n.t('common.halfway_reminder_notification_title', {
-            lang:task.contributor.preferred_language||'en',
-            args: { taskTitle: task.task.name },
-          }) || '';
+        if (halfByTime || halfByProgress) {
+          // const alreadySent = await this.wasNotificationSent(
+          //   task.id,
+          //   NotificationType.HALF_REMINDER,
+          // );
+          // if (!alreadySent) {
+          const title =
+            this.i18n.t('common.halfway_reminder_notification_title', {
+              lang: task.contributor.preferred_language || 'en',
+              args: { taskTitle: task.task.name },
+            }) || '';
 
-        const message =
-          this.i18n.t('common.halfway_reminder_notification_message', {
-             lang:task.contributor.preferred_language||'en',
-            args: { taskTitle: task.task.name },
-          }) || '';
-        await this.notificationService.create({
-          user_id: task.contributor_id  ,
-          title: title,
-          message: message,
-          type: 'task-progress-reminder'
-        }
-        )
+          const message =
+            this.i18n.t('common.halfway_reminder_notification_message', {
+              lang: task.contributor.preferred_language || 'en',
+              args: { taskTitle: task.task.name },
+            }) || '';
+          await this.notificationService.create({
+            user_id: task.contributor_id,
+            title: title,
+            message: message,
+            type: 'task-progress-reminder',
+          });
           // await this.sendPushNotification(task.contributor_id, {
           //   title: '⏳ You're Halfway There',
           //   body:
@@ -287,41 +285,40 @@ export class TaskDistributionMonitoringService {
           //   data: { taskId: task.id, type: NotificationType.HALF_REMINDER },
           // });
           // await this.logNotification(task.id, NotificationType.HALF_REMINDER);
-        // }
-        // continue;
-      }
+          // }
+          // continue;
+        }
 
-      // ── 2. FINAL WARNING ────────────────────────────────────────────────
-      //    OR:  90 % of time elapsed  ||  90 % of tasks done
-      const finalByTime     = timeRatio     >= 0.9;
-      const finalByProgress = progressRatio >= 0.9;
+        // ── 2. FINAL WARNING ────────────────────────────────────────────────
+        //    OR:  90 % of time elapsed  ||  90 % of tasks done
+        const finalByTime = timeRatio >= 0.9;
+        const finalByProgress = progressRatio >= 0.9;
 
-      if (finalByTime || finalByProgress) {
-        // const alreadySent = await this.wasNotificationSent(
-        //   task.id,
-        //   NotificationType.FINAL_WARNING,
-        // );
-        // if (!alreadySent) {
+        if (finalByTime || finalByProgress) {
+          // const alreadySent = await this.wasNotificationSent(
+          //   task.id,
+          //   NotificationType.FINAL_WARNING,
+          // );
+          // if (!alreadySent) {
           // const remaining = task.total_micro_tasks - task.current_batch;
-        const title =
-          this.i18n.t('common.final_warning_notification_title', {
-            lang:task.contributor.preferred_language||'en',
-            args: { taskTitle: task.task.name },
-          }) || '';
+          const title =
+            this.i18n.t('common.final_warning_notification_title', {
+              lang: task.contributor.preferred_language || 'en',
+              args: { taskTitle: task.task.name },
+            }) || '';
 
-        const message =
-          this.i18n.t('common.final_warning_notification_message', {
-             lang:task.contributor.preferred_language||'en',
-            args: { taskTitle: task.task.name },
-          }) || '';
-        await this.notificationService.create({
-          user_id: task.contributor_id  ,
-          title: title,
-          message: message,
-          type: 'task-progress-reminder'
-        })
+          const message =
+            this.i18n.t('common.final_warning_notification_message', {
+              lang: task.contributor.preferred_language || 'en',
+              args: { taskTitle: task.task.name },
+            }) || '';
+          await this.notificationService.create({
+            user_id: task.contributor_id,
+            title: title,
+            message: message,
+            type: 'task-progress-reminder',
+          });
 
-          
           // await this.sendPushNotification(task.contributor_id, {
           //   title: '🚨 Almost Done  Final Push!',
           //   body:
@@ -330,37 +327,39 @@ export class TaskDistributionMonitoringService {
           //   data: { taskId: task.id, type: NotificationType.FINAL_WARNING },
           // });
           // await this.logNotification(task.id, NotificationType.FINAL_WARNING);
-        //}
-        // continue;
-      }
-
-      // ── 3. DAILY INACTIVITY ─────────────────────────────────────────────
-      //    current_batch hasn't changed (updated_date) in over 24 h
-      const hoursSinceUpdate =
-        (now.getTime() - task.updated_date.getTime()) / (1_000 * 60 * 60);
-      
-      if (hoursSinceUpdate >= 24) {
-        if (missedContributorsNotificationsSent.includes(task.contributor_id)){
-          continue;
+          //}
+          // continue;
         }
-        missedContributorsNotificationsSent.push(task.contributor_id);
-        const title =
-          this.i18n.t('common.re_engagement_notification_title', {
-            lang:task.contributor.preferred_language||'en',
-            args: { taskTitle: task.task.name },
-          }) || '';
 
-        const message =
-          this.i18n.t('common.re_engagement_notification_message', {
-             lang:task.contributor.preferred_language||'en',
-            args: { taskTitle: task.task.name },
-          }) || '';
-        await this.notificationService.create({
-          user_id: task.contributor_id  ,
-          title: title,
-          message: message,
-          type: 'task-progress-reminder'
-        })
+        // ── 3. DAILY INACTIVITY ─────────────────────────────────────────────
+        //    current_batch hasn't changed (updated_date) in over 24 h
+        const hoursSinceUpdate =
+          (now.getTime() - task.updated_date.getTime()) / (1_000 * 60 * 60);
+
+        if (hoursSinceUpdate >= 24) {
+          if (
+            missedContributorsNotificationsSent.includes(task.contributor_id)
+          ) {
+            continue;
+          }
+          missedContributorsNotificationsSent.push(task.contributor_id);
+          const title =
+            this.i18n.t('common.re_engagement_notification_title', {
+              lang: task.contributor.preferred_language || 'en',
+              args: { taskTitle: task.task.name },
+            }) || '';
+
+          const message =
+            this.i18n.t('common.re_engagement_notification_message', {
+              lang: task.contributor.preferred_language || 'en',
+              args: { taskTitle: task.task.name },
+            }) || '';
+          await this.notificationService.create({
+            user_id: task.contributor_id,
+            title: title,
+            message: message,
+            type: 'task-progress-reminder',
+          });
           // await this.sendPushNotification(task.contributor_id, {
           //   title: '😴 No Progress in 24 Hours',
           //   body:
@@ -370,39 +369,40 @@ export class TaskDistributionMonitoringService {
           //   data: { taskId: task.id, type: NotificationType.DAILY_INACTIVITY },
           // });
           // await this.logNotification(task.id, NotificationType.DAILY_INACTIVITY);
-
+        }
       }
+    } catch (error: any) {
+      console.error('Error  In notifying contributors ', error);
     }
   }
-   catch(error:any){
-    console.error("Error  In notifying contributors ",error)
-  }
-  }
-  async notifyReveiwersOnTheirProgress():Promise<void>{
-    try{
-    const reviewerTasks=await this.reviewerTaskService.getOverloadedReviewers()
-    await Promise.all(reviewerTasks.map(r=>{
-      const title =
-          this.i18n.t('common.reviewer_queue_limit_notification_title', {
-            lang:r.preferred_language||'en'
-          }) || '';
+  async notifyReveiwersOnTheirProgress(): Promise<void> {
+    try {
+      const reviewerTasks =
+        await this.reviewerTaskService.getOverloadedReviewers();
+      await Promise.all(
+        reviewerTasks.map((r) => {
+          const title =
+            this.i18n.t('common.reviewer_queue_limit_notification_title', {
+              lang: r.preferred_language || 'en',
+            }) || '';
 
-      const message =
-        this.i18n.t('common.reviewer_queue_limit_notification_message', {
-            lang:r.preferred_language||'en',
-          args: { count: r.queue_count},
-        }) || '';
-      return this.notificationService.create({
-        user_id: r.reviewer_id ,
-        title: title,
-        message: message,
-        type: 'reviewer-queue-alert',
-        target:'email',
-        email:r.email
-      })
-    }))
-  }catch(error:any){
-    console.error("Error  In notifying reviewers",error)
-  }
+          const message =
+            this.i18n.t('common.reviewer_queue_limit_notification_message', {
+              lang: r.preferred_language || 'en',
+              args: { count: r.queue_count },
+            }) || '';
+          return this.notificationService.create({
+            user_id: r.reviewer_id,
+            title: title,
+            message: message,
+            type: 'reviewer-queue-alert',
+            target: 'email',
+            email: r.email,
+          });
+        }),
+      );
+    } catch (error: any) {
+      console.error('Error  In notifying reviewers', error);
+    }
   }
 }

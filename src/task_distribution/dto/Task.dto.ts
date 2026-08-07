@@ -24,7 +24,7 @@ export class GetQAMicroTasksDto extends PaginationDto {
   @IsEnum(['Pending', 'Approved', 'Rejected', 'Flagged', 'All'])
   status?: 'Pending' | 'Approved' | 'Rejected' | 'Flagged' | 'All';
 
-  @ApiProperty({ required: false, type:'boolean'})
+  @ApiProperty({ required: false, type: 'boolean' })
   @IsBoolean()
   @IsOptional()
   @Transform(({ value }) => {
@@ -32,5 +32,5 @@ export class GetQAMicroTasksDto extends PaginationDto {
     if (value === 'false' || value === false) return false;
     return Boolean(value); // fallback
   })
-  is_uncertain?:boolean
+  is_uncertain?: boolean;
 }

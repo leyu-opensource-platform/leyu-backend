@@ -30,7 +30,6 @@ export class WithdrawPayloadHmacGuard implements CanActivate {
 
     const expectedBuf = Buffer.from(expected, 'utf8');
     const suppliedBuf = Buffer.from(signature as string, 'utf8');
-    
 
     if (
       expectedBuf.length !== suppliedBuf.length ||

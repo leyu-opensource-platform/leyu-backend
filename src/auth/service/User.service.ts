@@ -63,7 +63,7 @@ export class UserService {
     private readonly publishService: PublisherService,
     private jwtService: JwtService,
     private readonly i18n: I18nService,
-    private readonly notificationService:NotificationService,
+    private readonly notificationService: NotificationService,
     // private eventEmitter: EventEmitter2,
   ) {
     this.paginationService = new PaginationService<User>(this.userRepository);
@@ -456,12 +456,12 @@ export class UserService {
       if (query.where.length === 0) {
         query.where.push({ is_active: true, role_id: manager_role_id });
       } else {
-      const data = query.where.map((item) =>({
-        ...item,
-        is_active: true,
-        role_id: manager_role_id,
-      }));
-    }
+        const data = query.where.map((item) => ({
+          ...item,
+          is_active: true,
+          role_id: manager_role_id,
+        }));
+      }
     } else {
       query.where = {
         ...query.where,
@@ -663,22 +663,22 @@ export class UserService {
       } else {
         throw new BadRequestException('Invalid referral code');
       }
-      const title= this.i18n.t('common.new_sign_up_title', {
-        lang:user?.preferred_language||'en'
-      }) || '';
-      const message= this.i18n.t('common.new_sign_up_message', {
-          lang:user?.preferred_language||'en'
+      const title =
+        this.i18n.t('common.new_sign_up_title', {
+          lang: user?.preferred_language || 'en',
         }) || '';
-      await this.notificationService.create(
-        {
-          user_id: referredBy.id,
-          title: title,
-          message: message,
-          type: 'referral-signup',
-          target:'email',
-          email:referredBy.email
-        }
-      )
+      const message =
+        this.i18n.t('common.new_sign_up_message', {
+          lang: user?.preferred_language || 'en',
+        }) || '';
+      await this.notificationService.create({
+        user_id: referredBy.id,
+        title: title,
+        message: message,
+        type: 'referral-signup',
+        target: 'email',
+        email: referredBy.email,
+      });
     }
     if (userData.national_id) {
       const filePath = await this.fileService.getPreSignedUrl(
@@ -946,7 +946,7 @@ export class UserService {
   async filterContributorByTaskRequirement(
     requirement: TaskRequirement | null,
     language_id: string,
-  ): Promise<{ id: string ,score: number}[]> {
+  ): Promise<{ id: string; score: number }[]> {
     const contributor_queries: {
       age?: {
         min: number;
@@ -1117,7 +1117,11 @@ export class UserService {
       where: whereCondition,
       relations: { score: true },
     });
-    const usersWithScore: { id: string; score: number; gender: 'Male' | 'Female' }[] = [];
+    const usersWithScore: {
+      id: string;
+      score: number;
+      gender: 'Male' | 'Female';
+    }[] = [];
     if (users) {
       users.map((user) => {
         if (user.score) {

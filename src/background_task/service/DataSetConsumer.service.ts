@@ -40,12 +40,12 @@ export class DatasetConsumer {
     queue: process.env.DATASET_RABBITMQ_QUEUE_NAME || 'dataset.queue',
     queueOptions: {
       durable: true,
-      deadLetterRoutingKey:'dataset.dead',
-      deadLetterExchange:'dataset.dlx',
+      deadLetterRoutingKey: 'dataset.dead',
+      deadLetterExchange: 'dataset.dlx',
     },
-    errorHandler:(channel, message, error) => {
+    errorHandler: (channel, message, error) => {
       channel.nack(message, false, false);
-    }
+    },
   })
   async handleDatasetAction(message: {
     datasetReviewId: string;

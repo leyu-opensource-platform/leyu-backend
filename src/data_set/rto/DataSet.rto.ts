@@ -92,7 +92,7 @@ export class DataSetDetailRto {
     dataSetDetailRto.type = dataSet.type;
     dataSetDetailRto.created_date = dataSet.created_date;
     dataSetDetailRto.qa_status = dataSet.qa_review_status;
-    ((dataSetDetailRto.micro_task = {
+    dataSetDetailRto.micro_task = {
       id: dataSet.microTask.id,
       code: dataSet.microTask.code,
       is_test: dataSet.microTask.is_test,
@@ -100,32 +100,32 @@ export class DataSetDetailRto {
       file_path: dataSet.microTask.file_path,
       text: dataSet.microTask.text,
       type: dataSet.microTask.type,
-    }),
-      (dataSetDetailRto.reviews = dataSet.dataSetReviews.map((review) => {
-        return {
-          id: review.id,
-          reviewer_id: review.reviewer.id,
-          score: review.reviewer?.score?.score || 0,
-          reviewer_name:
-            review.reviewer?.first_name +
-            ' ' +
-            review.reviewer?.middle_name +
-            ' ' +
-            review.reviewer?.last_name,
-          reviewer_email: review.reviewer?.email,
-          review_status: review.status,
-          comment: review.comment,
-          rejection_reason: review?.rejectionReasons.map((rejectionReason) => {
-            return rejectionReason.rejectionType.name;
-          }),
-          flag_reason: review?.flagReasons?.map((flagReason) => {
-            return flagReason.flagType?.name;
-          }),
-          annotations: review?.annotations.map((annotation) => {
-            return annotation.name;
-          }),
-        };
-      })));
+    };
+    dataSetDetailRto.reviews = dataSet.dataSetReviews.map((review) => {
+      return {
+        id: review.id,
+        reviewer_id: review.reviewer.id,
+        score: review.reviewer?.score?.score || 0,
+        reviewer_name:
+          review.reviewer?.first_name +
+          ' ' +
+          review.reviewer?.middle_name +
+          ' ' +
+          review.reviewer?.last_name,
+        reviewer_email: review.reviewer?.email,
+        review_status: review.status,
+        comment: review.comment,
+        rejection_reason: review?.rejectionReasons.map((rejectionReason) => {
+          return rejectionReason.rejectionType.name;
+        }),
+        flag_reason: review?.flagReasons?.map((flagReason) => {
+          return flagReason.flagType?.name;
+        }),
+        annotations: review?.annotations.map((annotation) => {
+          return annotation.name;
+        }),
+      };
+    });
     dataSetDetailRto.total_reviews = totalReviews;
     dataSetDetailRto.expected_reviews = expectedReviews;
     return dataSetDetailRto;

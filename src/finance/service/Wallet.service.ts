@@ -23,7 +23,7 @@ export class WalletService {
     private readonly transactionService: TransactionService,
     private readonly PaymentPaymentService: PaymentService,
     private readonly i18n: I18nService,
-        private readonly notificationService:NotificationService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   // ── Integrity helpers ────────────────────────────────────────────────────
@@ -151,71 +151,71 @@ export class WalletService {
   }
 
   async withdrawMoney(
-  withDrawData: {
-    account_name?: string;
-    account_number: string;
-    amount: number;
-    bank_code: string;
-  },
-  user: User,
-  queryRunner: QueryRunner,
-): Promise<Transaction> {
-  // Acquire pessimistic write lock on the wallet row
-  const wallet = await queryRunner.manager.findOne(Wallet, {
-    where: { user_id: user.id },
-    lock: { mode: 'pessimistic_write' },
-  });
-
-  if (!wallet) {
-    throw new NotFoundException(`Wallet for this user not found`);
-  }
-
-  // Verify integrity before any mutation
-  this.verifyHash(wallet);
-
-  const balance = parseFloat(wallet.balance.toString());
-  const heldBalance = parseFloat(wallet.held_balance.toString());
-  const withdrawAmount = parseFloat(withDrawData.amount.toString());
-
-  // Compute available balance as balance − held_balance
-  const availableBalance = balance - heldBalance;
-
-  // Reject if withdrawal amount exceeds available balance
-  if (withdrawAmount > availableBalance) {
-    throw new BadRequestException('Insufficient available balance');
-  }
-
-  // Increment held_balance to freeze funds while Payment processes
-  const newHeld = heldBalance + withdrawAmount;
-  this.stampHash(wallet, balance, newHeld);
-  wallet.held_balance = newHeld;
-  await queryRunner.manager.save(wallet);
-
-  // Create a Pending transaction  callback will finalise it
-  const transaction = await this.transactionService.create(
-    {
-      user_id: user.id,
-      amount: -withdrawAmount,
-      type: 'Withdraw',
-      status: 'Pending',
-      metadata: withDrawData,
+    withDrawData: {
+      account_name?: string;
+      account_number: string;
+      amount: number;
+      bank_code: string;
     },
-    queryRunner,
-  );
+    user: User,
+    queryRunner: QueryRunner,
+  ): Promise<Transaction> {
+    // Acquire pessimistic write lock on the wallet row
+    const wallet = await queryRunner.manager.findOne(Wallet, {
+      where: { user_id: user.id },
+      lock: { mode: 'pessimistic_write' },
+    });
 
-  // Fire payout request to Payment  do not await success/failure here
-  // handlePaymentPayoutCallback owns all balance mutations from this point
-  await this.PaymentPaymentService.withDrawMoney({
-    account_name:
-      user.first_name + ' ' + user.middle_name + ' ' + user.last_name,
-    account_number: withDrawData.account_number,
-    amount: withdrawAmount,
-    bank_code: withDrawData.bank_code,
-    reference: transaction.id,
-  });
+    if (!wallet) {
+      throw new NotFoundException(`Wallet for this user not found`);
+    }
 
-  return transaction;
-}
+    // Verify integrity before any mutation
+    this.verifyHash(wallet);
+
+    const balance = parseFloat(wallet.balance.toString());
+    const heldBalance = parseFloat(wallet.held_balance.toString());
+    const withdrawAmount = parseFloat(withDrawData.amount.toString());
+
+    // Compute available balance as balance − held_balance
+    const availableBalance = balance - heldBalance;
+
+    // Reject if withdrawal amount exceeds available balance
+    if (withdrawAmount > availableBalance) {
+      throw new BadRequestException('Insufficient available balance');
+    }
+
+    // Increment held_balance to freeze funds while Payment processes
+    const newHeld = heldBalance + withdrawAmount;
+    this.stampHash(wallet, balance, newHeld);
+    wallet.held_balance = newHeld;
+    await queryRunner.manager.save(wallet);
+
+    // Create a Pending transaction  callback will finalise it
+    const transaction = await this.transactionService.create(
+      {
+        user_id: user.id,
+        amount: -withdrawAmount,
+        type: 'Withdraw',
+        status: 'Pending',
+        metadata: withDrawData,
+      },
+      queryRunner,
+    );
+
+    // Fire payout request to Payment  do not await success/failure here
+    // handlePaymentPayoutCallback owns all balance mutations from this point
+    await this.PaymentPaymentService.withDrawMoney({
+      account_name:
+        user.first_name + ' ' + user.middle_name + ' ' + user.last_name,
+      account_number: withDrawData.account_number,
+      amount: withdrawAmount,
+      bank_code: withDrawData.bank_code,
+      reference: transaction.id,
+    });
+
+    return transaction;
+  }
 
   async remove(id: string) {
     const wallet = await this.walletRepository.findOne({ where: { id } });
@@ -279,8 +279,8 @@ export class WalletService {
       if (!wallet) {
         throw new Error(`Wallet not found for user ${transaction.user_id}`);
       }
-      const user=await queryRunner.manager.findOne(User, {
-        where: { id: transaction.user_id }
+      const user = await queryRunner.manager.findOne(User, {
+        where: { id: transaction.user_id },
       });
 
       this.verifyHash(wallet);
@@ -312,21 +312,21 @@ export class WalletService {
           },
         );
         await queryRunner.commitTransaction();
-        const title= this.i18n.t('common.withdrawal_success_notification_title', {
-          lang:user?.preferred_language||'en'
-        }) || '';
-        const message= this.i18n.t('common.withdrawal_success_notification_message', {
-            lang:user?.preferred_language||'en',
-            args:{amount:withdrawAmount}
+        const title =
+          this.i18n.t('common.withdrawal_success_notification_title', {
+            lang: user?.preferred_language || 'en',
           }) || '';
-        await this.notificationService.create(
-          {
-            user_id: transaction.user_id,
-            title: title,
-            message: message,
-            type: 'wallet-withdrawal-success'
-          }
-        )
+        const message =
+          this.i18n.t('common.withdrawal_success_notification_message', {
+            lang: user?.preferred_language || 'en',
+            args: { amount: withdrawAmount },
+          }) || '';
+        await this.notificationService.create({
+          user_id: transaction.user_id,
+          title: title,
+          message: message,
+          type: 'wallet-withdrawal-success',
+        });
       } else {
         // Release hold only  balance unchanged
         this.stampHash(wallet, balance, releaseHeld);
@@ -347,20 +347,20 @@ export class WalletService {
       }
 
       await queryRunner.commitTransaction();
-      const title= this.i18n.t('common.withdrawal_failed_notification_title', {
-        lang:user?.preferred_language||'en'
-      }) || '';
-      const message= this.i18n.t('common.withdrawal_failed_notification_message', {
-          lang:user?.preferred_language||'en'
+      const title =
+        this.i18n.t('common.withdrawal_failed_notification_title', {
+          lang: user?.preferred_language || 'en',
         }) || '';
-      await this.notificationService.create(
-        {
-          user_id: transaction.user_id,
-          title: title,
-          message: message,
-          type: 'wallet-withdrawal-failed'
-        }
-      )
+      const message =
+        this.i18n.t('common.withdrawal_failed_notification_message', {
+          lang: user?.preferred_language || 'en',
+        }) || '';
+      await this.notificationService.create({
+        user_id: transaction.user_id,
+        title: title,
+        message: message,
+        type: 'wallet-withdrawal-failed',
+      });
     } catch (error) {
       if (queryRunner.isTransactionActive) {
         await queryRunner.rollbackTransaction();

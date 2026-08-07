@@ -67,8 +67,10 @@ export class WalletController {
         throw new ConflictException('Withdrawal already in progress');
       }
     }
-    if(user.role.name===Role.REVIEWER){
-      throw new BadRequestException('Withdrawal not allowed for reviewers yet !');
+    if (user.role.name === Role.REVIEWER) {
+      throw new BadRequestException(
+        'Withdrawal not allowed for reviewers yet !',
+      );
     }
 
     // Requirement 1.5  mark as processing before entering DB transaction

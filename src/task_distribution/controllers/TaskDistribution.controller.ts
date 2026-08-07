@@ -269,15 +269,11 @@ export class TaskDistributionController {
     if (!task_id) {
       throw new Error('Task ID is required');
     }
-    try {
-      const result =
-        await this.reviewerTaskDistributionService.distributeTaskDataSets(
-          task_id,
-        );
-      return { message: ' Task distributed for reviewers', result };
-    } catch (error) {
-      throw error;
-    }
+    const result =
+      await this.reviewerTaskDistributionService.distributeTaskDataSets(
+        task_id,
+      );
+    return { message: ' Task distributed for reviewers', result };
   }
 
   @Post('/re-distribution')
@@ -323,36 +319,36 @@ export class TaskDistributionController {
       throw new BadRequestException('At least one file is required');
     }
 
-    console.log("Request body ",req.body);
+    console.log('Request body ', req.body);
     const submissions: {
       micro_task_id: string;
       file_path: string;
       audio_duration: any;
     }[] = [];
-    let { is_test, audio_duration } = req.body;
-    is_test = is_test === 'true' || is_test === true;
-    
+    const is_test = req.body.is_test === 'true' || req.body.is_test === true;
+
     // Parse audio_duration[micro_task_id] fields sent by the Dart client
     // Dart sends: audio_duration[some-uuid] = "1.23"
     const durationMap: Record<string, number> = {};
-    if(req.body.audio_duration){
-      for (const [key, value] of Object.entries(req.body.audio_duration as Record<string, string>)) {
+    if (req.body.audio_duration) {
+      for (const [key, value] of Object.entries(
+        req.body.audio_duration as Record<string, string>,
+      )) {
         const match = key.match(/^audio_duration\[(.+)\]$/);
         // if (match) {
-          const microTaskId = key;
-          const parsed = parseFloat(value);
-          durationMap[microTaskId] = isNaN(parsed) ? 0 : parsed;
+        const microTaskId = key;
+        const parsed = parseFloat(value);
+        durationMap[microTaskId] = isNaN(parsed) ? 0 : parsed;
         // }
-      } 
+      }
     }
-    
 
     try {
       for (const file of files) {
         submissions.push({
           micro_task_id: file.fieldname,
           file_path: '',
-          audio_duration: durationMap[file.fieldname] ?? 0
+          audio_duration: durationMap[file.fieldname] ?? 0,
         });
       }
       const data_Sets =

@@ -118,13 +118,7 @@ export class UsersController {
   // @UseGuards(OtpThrottlerGuard)
   @Throttle({ default: { limit: 3, ttl: 6000 } })
   async SignUp(@Body() body: SignUpDto) {
-    try {
-      const user = await this.usersService.signUp(body.phone_number);
-      // Commit transaction if everything is successful
-      return user;
-    } catch (error) {
-      throw error;
-    }
+    return this.usersService.signUp(body.phone_number);
   }
   @Post('verify/:id')
   async verifyUser(@Param('id') id: string, @Body() body: VerifyAccountDto) {

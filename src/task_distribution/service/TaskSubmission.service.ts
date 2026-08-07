@@ -138,7 +138,9 @@ export class TaskSubmissionService {
         if (queryRunner) {
           try {
             await queryRunner.release();
-          } catch (releaseError) {}
+          } catch (_releaseError) {
+            /* best effort */
+          }
         }
       }
     } else {
@@ -183,11 +185,11 @@ export class TaskSubmissionService {
           );
         const contributorMicroTasks =
           await this.contributorMicroTaskService.findOne({
-            where: { contributor_id: user_id, task_id: task_id ,
-              status:Not(ContributorMicroTasksConstantStatus.EXPIRED)
-
+            where: {
+              contributor_id: user_id,
+              task_id: task_id,
+              status: Not(ContributorMicroTasksConstantStatus.EXPIRED),
             },
-            
           });
         if (contributorMicroTasks) {
           // const userExpectedTasks = contributorMicroTasks.micro_task_ids.slice(
@@ -253,7 +255,9 @@ export class TaskSubmissionService {
         if (queryRunner) {
           try {
             await queryRunner.release();
-          } catch (releaseError) {}
+          } catch (_releaseError) {
+            /* best effort */
+          }
         }
       }
     }
@@ -490,8 +494,10 @@ export class TaskSubmissionService {
           );
         const contributorMicroTasks =
           await this.contributorMicroTaskService.findOne({
-            where: { contributor_id: user_id, task_id: task_id 
-              ,status:Not(ContributorMicroTasksConstantStatus.EXPIRED)
+            where: {
+              contributor_id: user_id,
+              task_id: task_id,
+              status: Not(ContributorMicroTasksConstantStatus.EXPIRED),
             },
           });
         if (contributorMicroTasks) {
@@ -547,7 +553,9 @@ export class TaskSubmissionService {
         if (queryRunner) {
           try {
             await queryRunner.release();
-          } catch (releaseError) {}
+          } catch (_releaseError) {
+            /* best effort */
+          }
         }
       }
     }

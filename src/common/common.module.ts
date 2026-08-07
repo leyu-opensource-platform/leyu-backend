@@ -43,13 +43,12 @@ import { AudioService } from './service/Audio.service';
             type: 'direct',
             options: { durable: true },
           },
-          { 
-            name: 'dataset.dlx', 
-            type: 'direct' 
+          {
+            name: 'dataset.dlx',
+            type: 'direct',
           },
         ],
         queues: [
-          
           {
             name: config.get<string>('RABBITMQ_QUEUE_NAME') as string,
             options: { durable: true },

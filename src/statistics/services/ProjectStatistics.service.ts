@@ -100,10 +100,10 @@ export class ProjectStatisticsService {
     const microTasks: MicroTask[] = await this.microTaskService.findAll({
       where: { task_id: task.id },
     });
-    const total_data_sets:number=await this.dataSetService.countAll({
-      microTask:{
-        task_id:task.id
-      }
+    const total_data_sets: number = await this.dataSetService.countAll({
+      microTask: {
+        task_id: task.id,
+      },
     });
     const total_micro_tasks: number = microTasks.length;
     // users

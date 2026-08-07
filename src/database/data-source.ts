@@ -13,7 +13,7 @@ export const dataSourceOptions: PostgresConnectionOptions & SeederOptions = {
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
   migrationsRun: process.env.NODE_ENV === 'production',
   seeds: [__dirname + '/../seeds/*{.ts,.js}'], //
-  synchronize:false, //process.env.NODE_ENV === 'development',   //true, // Set this to false for production use
+  synchronize: false, //process.env.NODE_ENV === 'development',   //true, // Set this to false for production use
   connectTimeoutMS: 20000,
   logging: false,
 };

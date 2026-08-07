@@ -43,18 +43,20 @@ export class PaymentController {
 
     const rawBody = req.rawBody;
     this.logger.warn({
-        body:rawBody
-    })
+      body: rawBody,
+    });
     this.logger.warn({
-        rawBody:rawBody
-    })
+      rawBody: rawBody,
+    });
 
     this.logger.warn({
-        payload:payload
-    })
+      payload: payload,
+    });
 
     if (!rawBody) {
-      throw new BadRequestException('Raw body unavailable for signature verification');
+      throw new BadRequestException(
+        'Raw body unavailable for signature verification',
+      );
     }
 
     // Verify HMAC signature before processing
