@@ -41,6 +41,11 @@ import { CacheModule } from 'src/cache/cache.module';
     MicroTaskController,
     // RejectionReasonController,
   ],
-  exports: [MicroTaskService, DataSetService, RejectionReasonService,FlagReasonService],
+  exports: [
+    MicroTaskService,
+    DataSetService,
+    RejectionReasonService,
+    FlagReasonService,
+  ],
 })
 export class DataSetModule {}

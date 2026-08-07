@@ -3,7 +3,7 @@ import { ContributorMicroTasksConstantStatus } from './constants/ContributorMicr
 import { GENDER_CONSTANT } from './constants/Gender.constant';
 
 export const distributeTaskAmongNewContributors = (
-  contributor_ids: {contributor_id: string, submission_count: string}[],
+  contributor_ids: { contributor_id: string; submission_count: string }[],
   micro_task_statistics: MicroTaskStatistics[],
   task_id: string,
   expected_micro_task_for_contributor: number,
@@ -36,7 +36,9 @@ export const distributeTaskAmongNewContributors = (
   let micro_task_index = 0;
 
   for (let index = 0; index < contributor_ids.length; index++) {
-    let micro_task_count = contributor_ids[index].submission_count ? parseInt(contributor_ids[index].submission_count) : 0;
+    let micro_task_count = contributor_ids[index].submission_count
+      ? parseInt(contributor_ids[index].submission_count)
+      : 0;
     let iterator = 0;
     const contributor_micro_task_ids: string[] = [];
 

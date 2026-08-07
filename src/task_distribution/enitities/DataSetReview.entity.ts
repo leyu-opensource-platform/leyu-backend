@@ -64,8 +64,6 @@ export class DataSetReview {
   @OneToMany(() => FlagReason, (flagReason) => flagReason.dataSetReview)
   flagReasons: FlagReason[];
 
-  
-
   @ManyToOne(() => DataSet, (dataSet) => dataSet.dataSetReviews)
   @JoinColumn({ name: 'data_set_id' })
   dataSet: DataSet;

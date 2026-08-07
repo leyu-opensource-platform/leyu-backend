@@ -1,4 +1,9 @@
-import { Country, Language, Region, RejectionType } from 'src/base_data/entities';
+import {
+  Country,
+  Language,
+  Region,
+  RejectionType,
+} from 'src/base_data/entities';
 import { DataSource, In } from 'typeorm';
 
 export async function seedCountries(dataSource: DataSource): Promise<void> {

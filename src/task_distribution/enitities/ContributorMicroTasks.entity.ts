@@ -1,11 +1,8 @@
-import { User } from 'src/auth/entities/User.entity';
 import { ContributorMicroTasksConstantStatus } from 'src/utils/constants/ContributorMicroTasks.constant';
 import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn,
-  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -55,10 +52,9 @@ export class ContributorMicroTasks {
   @Column({ nullable: true })
   dead_line: Date;
 
-
   @UpdateDateColumn()
-  updated_date:Date;
-  
+  updated_date: Date;
+
   @CreateDateColumn()
   created_date: Date;
 }

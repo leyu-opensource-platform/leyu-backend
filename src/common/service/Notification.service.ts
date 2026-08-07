@@ -25,8 +25,8 @@ export class NotificationService {
     title: string;
     message: string;
     type: NotificationType;
-    target?:'email'|'push',
-    email?:string
+    target?: 'email' | 'push';
+    email?: string;
   }): Promise<boolean> {
     console.log('notificationData', notificationData);
     return await this.rabbitPublishService.publishNotificationEvent({
@@ -36,8 +36,8 @@ export class NotificationService {
       displayName: 'Leyu',
       message: notificationData.message,
       payload: { title: notificationData.title },
-      target:notificationData.target??'push',
-      email:notificationData.email
+      target: notificationData.target ?? 'push',
+      email: notificationData.email,
     });
   }
 

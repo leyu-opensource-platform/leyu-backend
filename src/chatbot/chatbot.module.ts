@@ -4,7 +4,7 @@ import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 
 @Module({
-    imports: [
+  imports: [
     HttpModule.register({
       timeout: 30000,
       maxRedirects: 5,

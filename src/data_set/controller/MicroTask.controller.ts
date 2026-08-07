@@ -127,7 +127,7 @@ export class MicroTaskController {
           'Invalid CSV file format. Expected an array of objects.',
         );
       }
-      console.log("Micro tasks ",data.slice(0,5))
+      console.log('Micro tasks ', data.slice(0, 5));
       // Assuming data is an array of objects
       const microTasks =
         await this.microTaskService.createMultipleTextMicroTask(
@@ -145,7 +145,7 @@ export class MicroTaskController {
         entity_type: ActivityEntityType.MICRO_TASK,
         entity_id: microTasks.map((microTask) => microTask.id).join(','),
       });
-      return []
+      return [];
     } catch (error) {
       await queryRunner.rollbackTransaction();
       // delete the file from MinIO if needed

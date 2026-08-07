@@ -89,7 +89,7 @@ import { AnnotationType } from './entities/AnnotationType.entity';
     DataSetAnnotationService,
     RegionService,
     DataSetAnnotationService,
-    FlagTypeService
+    FlagTypeService,
   ],
 })
 export class BaseDataModule {}

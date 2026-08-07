@@ -86,7 +86,8 @@ export class PaymentService {
     raw: PaymentPayoutCallbackDto;
   } {
     const isSuccess = payload.status === 'success';
-    const isFailed = payload.status === 'failed' || payload.status === 'cancelled';
+    const isFailed =
+      payload.status === 'failed' || payload.status === 'cancelled';
 
     this.logger.log(
       `Payment payout callback  ref: ${payload.reference}, status: ${payload.status}, Payment_ref: ${payload.Payment_reference}`,
@@ -171,5 +172,4 @@ export class PaymentService {
       throw new InternalServerErrorException('Payment ERROR');
     }
   }
-  
 }

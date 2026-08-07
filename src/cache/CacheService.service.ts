@@ -15,7 +15,7 @@ import {
 @Injectable()
 export class CacheService implements OnModuleInit, OnModuleDestroy {
   private cachedTaskIds: string[] = [];
-  private cachedContributorIds:string[]=[];
+  private cachedContributorIds: string[] = [];
   constructor(private readonly configService: ConfigService) {}
   async onModuleInit() {
     const redisUrl = this.configService.get<string>('REDIS_URL') || '';
@@ -83,7 +83,6 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     // set expire time
     await this.client.expire(key, 20 * 60);
     this.cachedContributorIds.push(key);
-
   }
 
   async writeContributorTaskMicroTasks(
@@ -310,10 +309,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   async clearAllTaskRelatedCaches(): Promise<void> {
     if (!this.client) throw new Error('Redis client not initialized');
 
-    const keysToDelete = [
-      ...this.cachedTaskIds,
-      ...this.cachedContributorIds,
-    ];
+    const keysToDelete = [...this.cachedTaskIds, ...this.cachedContributorIds];
 
     if (keysToDelete.length > 0) {
       await this.client.del(...keysToDelete);
@@ -326,8 +322,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     );
   }
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  async removeAllCaches(){
-    this.cachedContributorIds=[];
-    this.cachedTaskIds=[];
+  async removeAllCaches() {
+    this.cachedContributorIds = [];
+    this.cachedTaskIds = [];
   }
 }

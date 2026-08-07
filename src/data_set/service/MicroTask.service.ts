@@ -692,9 +692,9 @@ export class MicroTaskService {
     }
     let sourceMicroTasks: MicroTask[] = await this.microTaskRepository.find({
       where: { task_id: source_task_id },
-      order:{
-        created_date: 'ASC'
-      }
+      order: {
+        created_date: 'ASC',
+      },
     });
     const targetMicroTasks = await this.microTaskRepository.find({
       where: { task_id: task_id },
@@ -731,9 +731,7 @@ export class MicroTaskService {
         task_id: task_id,
         code: microTask.code,
         text: microTask.text,
-        is_test: task.require_contributor_test
-          ? microTask.is_test
-          : false,
+        is_test: task.require_contributor_test ? microTask.is_test : false,
         instruction: microTask.instruction,
         file_path: microTask.file_path,
         type: microTask.type,
@@ -745,10 +743,7 @@ export class MicroTaskService {
       });
     }
 
-  const microtasks = await manager.save(
-    MicroTask,
-    microTasksToSave,
-  );
+    const microtasks = await manager.save(MicroTask, microTasksToSave);
     return `${microtasks.length} micro tasks imported from ${source_task.name} to ${task.name}`;
   }
 
@@ -811,12 +806,12 @@ export class MicroTaskService {
     }
     const sourceMicroTasks: MicroTask[] = await this.microTaskRepository.find({
       where: { task_id: source_task_id },
-      order:{
-        created_date: 'ASC'
+      order: {
+        created_date: 'ASC',
       },
       relations: { dataSets: true },
     });
-    
+
     const targetMicroTasks = await this.microTaskRepository.find({
       where: { task_id: task_id },
     });

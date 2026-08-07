@@ -21,7 +21,7 @@ export class CreateNotificationDto {
     ['task-assign', 'task-invitation', 'task-rejected', 'task-approved'],
     { each: true },
   )
-  notificationType:NotificationType;
+  notificationType: NotificationType;
   @ApiProperty()
   @IsString()
   displayName: string;

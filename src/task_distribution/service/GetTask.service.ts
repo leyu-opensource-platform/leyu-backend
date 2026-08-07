@@ -56,8 +56,7 @@ type TaskWithStatus = Task & {
   totalApprovedTestMicroTasks: number;
   totalPendingTestMicroTasks: number;
   totalRejectedTestMicroTasks: number;
-}
-
+};
 
 @Injectable()
 /**
@@ -172,25 +171,25 @@ export class GetTasksService {
   // ─── Helper: Base RTO shape ───────────────────────────────────────────────────
 
   private buildBaseRto(
-  task: TaskWithStatus,
-  overrides: ContributorTaskRtoOverrides,
-): ContributorTaskRto {
-  return ContributorTaskRto.fromSelf({
-    id: task.id,
-    name: task.name,
-    description: task.description,
-    is_public: task.is_public,
-    require_contributor_test: task.require_contributor_test,
-    is_closed: task.is_closed,
-    is_archived: task.is_archived,
-    distribution_started: task.distribution_started,
-    task_type: task.taskType?.task_type,
-    average_time: task.taskRequirement?.appriximate_time_per_batch ?? null,
-    earning_per_task: task.payment?.contributor_credit_per_microtask ?? null,
-    // overrides must supply the rest (status, counts, dead_line, estimated_earning)
-    ...overrides,
-  });
-}
+    task: TaskWithStatus,
+    overrides: ContributorTaskRtoOverrides,
+  ): ContributorTaskRto {
+    return ContributorTaskRto.fromSelf({
+      id: task.id,
+      name: task.name,
+      description: task.description,
+      is_public: task.is_public,
+      require_contributor_test: task.require_contributor_test,
+      is_closed: task.is_closed,
+      is_archived: task.is_archived,
+      distribution_started: task.distribution_started,
+      task_type: task.taskType?.task_type,
+      average_time: task.taskRequirement?.appriximate_time_per_batch ?? null,
+      earning_per_task: task.payment?.contributor_credit_per_microtask ?? null,
+      // overrides must supply the rest (status, counts, dead_line, estimated_earning)
+      ...overrides,
+    });
+  }
 
   private estimatedEarning(task: TaskWithStatus, unitCount: number): number {
     return task.payment.contributor_credit_per_microtask * unitCount;
@@ -206,8 +205,14 @@ export class GetTasksService {
     // ── COMPLETED assignment ──────────────────────────────────────────────────
     if (assignment.status === ContributorMicroTasksConstantStatus.COMPLETED) {
       const base = {
-        done_count: task.totalApprovedMicroTasks+task.totalPendingMicroTasks+task.totalRejectedMicroTasks,
-        total_count: task.totalApprovedMicroTasks+task.totalPendingMicroTasks+task.totalRejectedMicroTasks,
+        done_count:
+          task.totalApprovedMicroTasks +
+          task.totalPendingMicroTasks +
+          task.totalRejectedMicroTasks,
+        total_count:
+          task.totalApprovedMicroTasks +
+          task.totalPendingMicroTasks +
+          task.totalRejectedMicroTasks,
         dead_line: assignment.dead_line,
         rejected_count: task.totalRejectedMicroTasks,
         pending_count: task.totalPendingMicroTasks,
@@ -228,12 +233,21 @@ export class GetTasksService {
         pending_count: 0,
       });
     }
-    let totalDone=task.totalRejectedMicroTasks + task.totalPendingMicroTasks + task.totalApprovedMicroTasks;
+    const totalDone =
+      task.totalRejectedMicroTasks +
+      task.totalPendingMicroTasks +
+      task.totalApprovedMicroTasks;
     // ── IN_PROGRESS assignment ────────────────────────────────────────────────
-    const microTasksIds=assignment.micro_task_ids;
-    const nextBatchIds=microTasksIds.slice(assignment.current_batch, Math.min(microTasksIds.length, assignment.current_batch+assignment.batch));
+    const microTasksIds = assignment.micro_task_ids;
+    const nextBatchIds = microTasksIds.slice(
+      assignment.current_batch,
+      Math.min(
+        microTasksIds.length,
+        assignment.current_batch + assignment.batch,
+      ),
+    );
     const undone = nextBatchIds.length;
-    let total=totalDone+undone;
+    const total = totalDone + undone;
     if (assignment.status === ContributorMicroTasksConstantStatus.IN_PROGRESS) {
       // Rejected tasks take priority
       if (task.totalRejectedMicroTasks > 0) {
@@ -254,11 +268,11 @@ export class GetTasksService {
           estimated_earning: earning,
         });
       }
-      
+
       return this.buildBaseRto(task, {
         status: 'UNDER_REVIEW',
         done_count: totalDone,
-        total_count: total,  //assignment.micro_task_ids.length,
+        total_count: total, //assignment.micro_task_ids.length,
         dead_line: assignment.dead_line,
         rejected_count: task.totalRejectedMicroTasks,
         pending_count: task.totalPendingMicroTasks,
@@ -304,7 +318,7 @@ export class GetTasksService {
         return this.buildBaseRto(task, {
           status: 'UNDER_REVIEW',
           done_count: totalDone,
-          total_count:total,
+          total_count: total,
           dead_line: assignment.dead_line,
           rejected_count: task.totalRejectedMicroTasks,
           pending_count: task.totalPendingMicroTasks,
@@ -314,9 +328,9 @@ export class GetTasksService {
       }
 
       return this.buildBaseRto(task, {
-        status: totalDone>0?'UNDER_REVIEW':'NEW',
+        status: totalDone > 0 ? 'UNDER_REVIEW' : 'NEW',
         done_count: totalDone,
-        total_count:total,
+        total_count: total,
         dead_line: assignment.dead_line,
         estimated_earning: earning,
         rejected_count: task.totalRejectedMicroTasks,
@@ -351,31 +365,46 @@ export class GetTasksService {
           approved_count: task.totalApprovedTestMicroTasks,
           estimated_earning: earning,
           rejected_count: 0,
-          pending_count: 0
+          pending_count: 0,
         });
-      }
-      else if (task.totalRejectedMicroTasks>0){
+      } else if (task.totalRejectedMicroTasks > 0) {
         return this.buildBaseRto(task, {
-          status:'REJECTED',
-          done_count: task.totalApprovedMicroTasks + task.totalRejectedMicroTasks + task.totalPendingMicroTasks,
-          total_count: task.totalApprovedMicroTasks + task.totalRejectedMicroTasks + task.totalPendingMicroTasks,
+          status: 'REJECTED',
+          done_count:
+            task.totalApprovedMicroTasks +
+            task.totalRejectedMicroTasks +
+            task.totalPendingMicroTasks,
+          total_count:
+            task.totalApprovedMicroTasks +
+            task.totalRejectedMicroTasks +
+            task.totalPendingMicroTasks,
           dead_line: undefined,
           approved_count: task.totalApprovedMicroTasks,
           estimated_earning: earning,
           rejected_count: task.totalRejectedMicroTasks,
-          pending_count: task.totalPendingMicroTasks
+          pending_count: task.totalPendingMicroTasks,
         });
-      }
-      else if ((task.totalApprovedMicroTasks + task.totalPendingMicroTasks + task.totalRejectedMicroTasks) > 0) {
+      } else if (
+        task.totalApprovedMicroTasks +
+          task.totalPendingMicroTasks +
+          task.totalRejectedMicroTasks >
+        0
+      ) {
         return this.buildBaseRto(task, {
           status: 'COMPLETED',
-          done_count: task.totalApprovedMicroTasks + task.totalRejectedMicroTasks + task.totalPendingMicroTasks,
-          total_count: task.totalApprovedMicroTasks + task.totalRejectedMicroTasks + task.totalPendingMicroTasks,
+          done_count:
+            task.totalApprovedMicroTasks +
+            task.totalRejectedMicroTasks +
+            task.totalPendingMicroTasks,
+          total_count:
+            task.totalApprovedMicroTasks +
+            task.totalRejectedMicroTasks +
+            task.totalPendingMicroTasks,
           dead_line: undefined,
           approved_count: task.totalApprovedMicroTasks,
           estimated_earning: earning,
           rejected_count: task.totalRejectedMicroTasks,
-          pending_count: task.totalPendingMicroTasks
+          pending_count: task.totalPendingMicroTasks,
         });
       }
       return null;
@@ -439,11 +468,11 @@ export class GetTasksService {
       total_count: totalTestMicroTasks,
       estimated_earning: this.estimatedEarning(
         task,
-        task.taskRequirement.max_micro_task_per_contributor
+        task.taskRequirement.max_micro_task_per_contributor,
       ),
       rejected_count: 0,
       approved_count: 0,
-      pending_count: 0
+      pending_count: 0,
     });
   }
 
@@ -1150,7 +1179,7 @@ export class GetTasksService {
       });
     if (!contributorMicroTasksAssignedInComplete) {
       const result: ContributorMicroTaskRto[] = [];
-      let nonTestSubmissions = contributorSubmissions.filter(
+      const nonTestSubmissions = contributorSubmissions.filter(
         (mt) => !mt.is_test,
       );
       for (const mt of nonTestSubmissions) {
@@ -1209,8 +1238,8 @@ export class GetTasksService {
         current_batch,
         nextBatch,
       );
-    const prevDoneMicroTasks: any[] = contributorSubmissions.filter((mt) =>
-      mt.is_test==false
+    const prevDoneMicroTasks: any[] = contributorSubmissions.filter(
+      (mt) => mt.is_test == false,
     );
     let nextAssignedMicroTasks: any[] = [];
     if (nextMicroTasksIds.length > 0) {

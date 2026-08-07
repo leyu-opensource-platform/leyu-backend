@@ -59,7 +59,7 @@ export class UserScoreService {
           return await this.userScoreRepository.save(userScore);
         }),
       );
-     return;
+      return;
     }
     const manager = queryRunner.manager;
     // Check if the user score already exists

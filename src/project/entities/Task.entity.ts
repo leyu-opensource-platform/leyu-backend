@@ -129,5 +129,4 @@ export class Task {
 
   @OneToMany(() => InvitationLink, (invitationLink) => invitationLink.task)
   invitationLinks: InvitationLink[];
-
 }
