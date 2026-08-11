@@ -326,6 +326,30 @@ export class TaskSubmissionService {
     if (!datasets || datasets.length == 0) {
       throw new BadRequestException('No datasets provided');
     }
+
+    // Server-side audio duration validation (10-60 seconds)
+    const MIN_AUDIO_DURATION = 10;
+    const MAX_AUDIO_DURATION = 60;
+    const invalidDurations = datasets.filter(
+      (d) =>
+        d.audio_duration < MIN_AUDIO_DURATION ||
+        d.audio_duration > MAX_AUDIO_DURATION,
+    );
+    if (invalidDurations.length > 0) {
+      const details = invalidDurations.map((d) => ({
+        micro_task_id: d.micro_task_id,
+        audio_duration: d.audio_duration,
+        reason:
+          d.audio_duration < MIN_AUDIO_DURATION
+            ? `Audio too short (${d.audio_duration.toFixed(1)}s). Minimum is ${MIN_AUDIO_DURATION}s.`
+            : `Audio too long (${d.audio_duration.toFixed(1)}s). Maximum is ${MAX_AUDIO_DURATION}s.`,
+      }));
+      throw new BadRequestException({
+        message: `${invalidDurations.length} audio file(s) have invalid duration. All recordings must be between ${MIN_AUDIO_DURATION}-${MAX_AUDIO_DURATION} seconds.`,
+        invalidSubmissions: details,
+      });
+    }
+
     const micro_task_ids = datasets.map((d) => d.micro_task_id);
     const user: User | null = await this.userService.findOne({
       where: { id: user_id },
@@ -349,8 +373,18 @@ export class TaskSubmissionService {
     ) {
       throw new BadRequestException(`Invalid Dataset Type for this task`); // or throw a custom error
     }
-    const dialect_id = user?.dialect_id;
-    const language_id = user?.language_id;
+    // Use the task's own language (and its required dialect, when the task
+    // specifies exactly one) rather than blindly trusting the contributor's
+    // profile fields -- a contributor working multiple language tasks has a
+    // single profile language_id/dialect_id, so submissions to a task in a
+    // *different* language than their profile would otherwise get saved
+    // mislabeled with the wrong language/dialect.
+    const language_id = task.language_id;
+    const dialect_id =
+      task.taskRequirement?.is_dialect_specific &&
+      task.taskRequirement?.dialects?.length === 1
+        ? task.taskRequirement.dialects[0].id
+        : user?.dialect_id;
     if (!datasets || datasets.length == 0) {
       throw new BadRequestException('No datasets provided');
     }
@@ -409,8 +443,8 @@ export class TaskSubmissionService {
             test_data_set.push({
               ...d,
               audio_duration: d.audio_duration,
-              dialect_id: user.dialect_id,
-              language_id: user.language_id,
+              dialect_id,
+              language_id,
               is_test: true,
             });
           }

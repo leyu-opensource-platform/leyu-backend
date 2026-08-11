@@ -874,7 +874,7 @@ export class DataSetService {
       ),
       current_retry: microTask.dataSets.length,
       allowed_retry: microTask.task.taskRequirement.max_retry_per_task,
-      can_retry: hasApprovedOrPendingDatasets ? false : hasReachedMaxRetry,
+      can_retry: hasApprovedOrPendingDatasets ? false : !hasReachedMaxRetry,
     };
   }
   async getTaskDataSetReviewStats(

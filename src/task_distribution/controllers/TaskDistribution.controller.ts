@@ -50,6 +50,8 @@ import { Queue } from 'bullmq';
 import { ReviewerTaskDistributionsService } from '../service/ReviewerTaskDistribution.service';
 import { unlink } from 'fs';
 import { promisify } from 'util';
+import { ContributorMicroTaskService } from '../service/ContributorMicroTask.service';
+import { ReportMicroTaskDto } from '../dto/ReportMicroTask.dto';
 export const unlinkAsync = promisify(unlink);
 
 @Controller('task-distribution')
@@ -65,6 +67,7 @@ export class TaskDistributionController {
     private readonly fileService: FileService,
     private readonly audioService: AudioService,
     private readonly dataSource: DataSource,
+    private readonly contributorMicroTaskService: ContributorMicroTaskService,
     @InjectQueue('file-upload')
     private readonly fileQueue: Queue,
   ) {}
@@ -394,5 +397,25 @@ export class TaskDistributionController {
       );
       throw error;
     }
+  }
+
+  @Post('/:task_id/report-micro-task')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.CONTRIBUTOR)
+  @ApiOperation({
+    summary: 'Report a prompt (micro-task) and get a replacement',
+    description:
+      "Contributor reports the current prompt as nonsensical, offensive, or otherwise broken. It's excluded from future assignment and swapped for a fresh micro-task in the contributor's current batch, if one is available.",
+  })
+  async reportMicroTask(
+    @Param('task_id', new ParseUUIDPipe()) task_id: string,
+    @Body() dto: ReportMicroTaskDto,
+    @Request() req,
+  ) {
+    return this.contributorMicroTaskService.reportAndReplaceMicroTask(
+      req.user.id,
+      task_id,
+      dto,
+    );
   }
 }

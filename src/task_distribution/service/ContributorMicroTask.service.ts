@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, In, IsNull, LessThan, Not, QueryRunner, Repository } from 'typeorm';
 import { ContributorMicroTasks } from '../enitities/ContributorMicroTasks.entity';
@@ -13,12 +13,19 @@ import { Task } from 'src/project/entities/Task.entity';
 import { Cron ,CronExpression} from '@nestjs/schedule';
 import { MicroTaskStatisticsService } from './MicroTaskStatistics.service';
 import { UserScoreService } from 'src/auth/service/UserScore.service';
+import { MicroTask } from 'src/data_set/entities/MicroTask.entity';
+import { MicroTaskReport } from 'src/data_set/entities/MicroTaskReport.entity';
+import { ReportMicroTaskDto } from '../dto/ReportMicroTask.dto';
 
 @Injectable()
 export class ContributorMicroTaskService {
   constructor(
     @InjectRepository(ContributorMicroTasks)
     private readonly contributorMicroTaskRepository: Repository<ContributorMicroTasks>,
+    @InjectRepository(MicroTask)
+    private readonly microTaskRepository: Repository<MicroTask>,
+    @InjectRepository(MicroTaskReport)
+    private readonly microTaskReportRepository: Repository<MicroTaskReport>,
     private readonly microTaskStatisticsService : MicroTaskStatisticsService,
     private readonly userService: UserService,
     private readonly userScoreService: UserScoreService,
@@ -414,5 +421,103 @@ export class ContributorMicroTaskService {
 
       .getMany();
     return contributorMicroTasks;
+  }
+
+  /**
+   * A contributor reports a prompt (micro-task) as unusable (nonsensical,
+   * offensive, or otherwise broken). The prompt is marked reported so it's
+   * never served again, the report is logged for review, and the
+   * contributor's current batch has that item swapped for a fresh,
+   * not-yet-assigned micro-task from the same task so they can keep working.
+   * If no replacement is available, the item is simply removed from their
+   * batch instead.
+   */
+  async reportAndReplaceMicroTask(
+    contributor_id: string,
+    task_id: string,
+    dto: ReportMicroTaskDto,
+  ): Promise<{ replaced: boolean; replacement_micro_task_id: string | null }> {
+    return this.contributorMicroTaskRepository.manager.transaction(
+      async (manager) => {
+        // Serialize concurrent report-and-replace calls for the same task
+        // (auto-released at transaction end) so two contributors reporting
+        // around the same time can never both compute the same "available"
+        // replacement and get assigned the same micro-task.
+        await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          task_id,
+        ]);
+
+        const assignment = await manager.findOne(ContributorMicroTasks, {
+          where: {
+            contributor_id,
+            task_id,
+            status: Not(ContributorMicroTasksConstantStatus.EXPIRED),
+          },
+        });
+        if (!assignment) {
+          throw new NotFoundException(
+            'No active assignment found for this task',
+          );
+        }
+        const reportedIndex = (assignment.micro_task_ids || []).indexOf(
+          dto.micro_task_id,
+        );
+        if (reportedIndex === -1) {
+          throw new BadRequestException(
+            'This micro-task is not part of your current assignment',
+          );
+        }
+
+        await manager.update(MicroTask, dto.micro_task_id, {
+          is_reported: true,
+        });
+        await manager.save(
+          MicroTaskReport,
+          manager.create(MicroTaskReport, {
+            micro_task_id: dto.micro_task_id,
+            reported_by: contributor_id,
+            reason: dto.reason,
+            note: dto.note,
+          }),
+        );
+
+        // Ids already spoken for: assigned (in any status) to any contributor
+        // for this task, so the replacement can't collide with someone else's batch.
+        const allAssignmentsForTask = await manager.find(
+          ContributorMicroTasks,
+          { where: { task_id } },
+        );
+        const takenIds = new Set<string>();
+        for (const a of allAssignmentsForTask) {
+          for (const id of a.micro_task_ids || []) {
+            takenIds.add(id);
+          }
+        }
+
+        const candidateReplacements = await manager.find(MicroTask, {
+          where: { task_id, is_reported: false },
+          select: { id: true },
+        });
+        const replacement = candidateReplacements.find(
+          (mt) => !takenIds.has(mt.id),
+        );
+
+        const updatedIds = [...assignment.micro_task_ids];
+        if (replacement) {
+          updatedIds[reportedIndex] = replacement.id;
+        } else {
+          updatedIds.splice(reportedIndex, 1);
+        }
+        await manager.update(ContributorMicroTasks, assignment.id, {
+          micro_task_ids: updatedIds,
+          total_micro_tasks: updatedIds.length,
+        });
+
+        return {
+          replaced: !!replacement,
+          replacement_micro_task_id: replacement?.id ?? null,
+        };
+      },
+    );
   }
 }
