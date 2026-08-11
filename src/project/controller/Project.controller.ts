@@ -87,7 +87,7 @@ export class ProjectController {
       },
     },
   })
-  @UseInterceptors(FileInterceptor('image', { storage: multerImageS3Storage.storage }))
+  @UseInterceptors(FileInterceptor('image', { storage: multerImageS3Storage }))
   async create(
     @UploadedFile() file: any,
     @Body()
