@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DataSource, In, QueryRunner } from 'typeorm';
 import { MicroTaskStatistics } from '../enitities/MicroTaskStatistics.entity';
 import { MicroTaskStatisticsService } from './MicroTaskStatistics.service';
@@ -33,6 +33,8 @@ import { MicroTaskService } from 'src/data_set/service/MicroTask.service';
  * its goals.
  */
 export class TaskDistributionService {
+  private readonly logger = new Logger(TaskDistributionService.name);
+
   constructor(
     private readonly microTaskStatisticsService: MicroTaskStatisticsService,
     private readonly contributorMicroTaskService: ContributorMicroTaskService,
@@ -584,6 +586,19 @@ export class TaskDistributionService {
         return contributor_task.micro_task_ids.length > 0;
       },
     );
+    const skippedContributorIds = contributor_micro_tasks
+      .filter((contributor_task) => contributor_task.micro_task_ids.length === 0)
+      .map((contributor_task) => contributor_task.contributor_id);
+    if (skippedContributorIds.length > 0) {
+      // A contributor gets nothing this round (not a partial batch) when
+      // there isn't enough spare capacity across micro-tasks to fill a
+      // complete batch for them -- surfaced here instead of silently
+      // dropping them, since from the API caller's side this previously
+      // looked identical to "no new contributors to distribute to at all".
+      this.logger.warn(
+        `distributeNewTask: task ${data.task_id} skipped ${skippedContributorIds.length} contributor(s) with no available capacity for a full batch (batch size ${minRequiredContributorTasks}): ${skippedContributorIds.join(', ')}`,
+      );
+    }
 
     const completeButNotFullyAssignedContributors =
       data.existingAssignments.filter(
