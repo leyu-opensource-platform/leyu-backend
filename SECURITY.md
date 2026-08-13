@@ -74,7 +74,7 @@ We take security vulnerabilities seriously and appreciate responsible disclosure
 
 Instead, please report security vulnerabilities through one of these secure channels:
 
-1. **Email**: Send details to `security@leyu-api.com`
+1. **Email**: Send details to `infor@leyu.ai`
 2. **Encrypted Email**: Use our PGP key (available on request) for sensitive reports
 3. **Private Communication**: Contact the development team directly through secure channels
 
@@ -237,7 +237,7 @@ We align our security practices with industry standards:
 ### Emergency Contact
 
 For critical security issues requiring immediate attention:
-- **Emergency Email**: security-emergency@leyu-api.com
+- **Emergency Email**: info@leyu.ai
 - **Response Time**: 4 hours during business hours, 12 hours outside business hours
 
 ## Acknowledgments
