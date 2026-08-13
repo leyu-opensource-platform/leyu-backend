@@ -47,6 +47,60 @@ export class ApproveDataSetDto {
   is_uncertain?: boolean;
 }
 
+export class BulkApproveDataSetDto extends ApproveDataSetDto {
+  @ApiProperty({ type: [String], description: 'Dataset/review ids to approve' })
+  @IsArray()
+  @IsUUID('all', { each: true })
+  ids: string[];
+}
+
+export class BulkRejectDataSetDto {
+  @ApiProperty({ type: [String], description: 'Dataset/review ids to reject' })
+  @IsArray()
+  @IsUUID('all', { each: true })
+  ids: string[];
+
+  @ApiProperty()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  rejection_type_ids: string[];
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  flag?: boolean;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  comment?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsArray()
+  @IsUUID('all', { each: true })
+  @IsOptional()
+  flag_type_ids?: string[];
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  is_uncertain?: boolean;
+}
+
+export class BulkActionResultDto {
+  @ApiProperty({ type: [String] })
+  succeeded: string[];
+
+  @ApiProperty({
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: { id: { type: 'string' }, error: { type: 'string' } },
+    },
+  })
+  failed: { id: string; error: string }[];
+}
+
 export class ReviewDetailRto {
   @ApiProperty()
   id: string;

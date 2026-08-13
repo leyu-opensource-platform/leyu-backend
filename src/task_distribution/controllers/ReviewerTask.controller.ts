@@ -25,7 +25,13 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Role } from 'src/auth/decorators/roles.enum';
 import { PaginatedResult } from 'src/utils/paginate.util';
 import { DataSetSanitize } from 'src/data_set/sanitize';
-import { ApproveDataSetDto, ReviewDetailRto } from '../dto/DataSet.dto';
+import {
+  ApproveDataSetDto,
+  BulkApproveDataSetDto,
+  BulkRejectDataSetDto,
+  BulkActionResultDto,
+  ReviewDetailRto,
+} from '../dto/DataSet.dto';
 import { DataSource, QueryRunner } from 'typeorm';
 import { ActivityLogService } from 'src/common/service/ActivityLog.service';
 import {
@@ -36,6 +42,17 @@ import { PublisherService } from 'src/common/service/RabbitPublish.service';
 import { CreateRejectionDto } from 'src/data_set/dto/RejectionReason.dto';
 import { PaginationDto } from 'src/common/dto/Pagination.dto';
 import { GetQAMicroTasksDto } from '../dto/Task.dto';
+
+// Structural shape shared by CreateRejectionDto (single-item) and
+// BulkRejectDataSetDto (adds `ids`) -- lets the same private per-item reject
+// helpers accept either without the extra `ids` field tripping strict typing.
+type RejectionInput = {
+  rejection_type_ids: string[];
+  flag?: boolean;
+  comment?: string;
+  flag_type_ids?: string[];
+  is_uncertain?: boolean;
+};
 
 @Controller('reviewer-task')
 @ApiTags('Reviewer Tasks ')
@@ -85,15 +102,7 @@ export class ReviewerTaskDistributionController {
     );
   }
 
-  @Put('/approve/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.REVIEWER)
-  async approve(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: ApproveDataSetDto,
-    @Request() req,
-  ) {
-    // create query runner
+  private async approveOne(id: string, body: ApproveDataSetDto, req): Promise<void> {
     const queryRunner: QueryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -122,9 +131,6 @@ export class ReviewerTaskDistributionController {
         actorId: req.user.id,
         timestamp: new Date().toISOString(),
       });
-      return {
-        message: 'Data set approved successfully',
-      };
     } catch (error) {
       if (queryRunner && queryRunner.isTransactionActive) {
         await queryRunner.rollbackTransaction();
@@ -141,14 +147,35 @@ export class ReviewerTaskDistributionController {
     }
   }
 
-  @Put('/reject/:id')
+  @Put('/approve/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.REVIEWER)
-  async reject(
+  async approve(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() rejectionReason: CreateRejectionDto,
+    @Body() body: ApproveDataSetDto,
     @Request() req,
   ) {
+    await this.approveOne(id, body, req);
+    return {
+      message: 'Data set approved successfully',
+    };
+  }
+
+  @Put('/bulk-approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.REVIEWER)
+  async bulkApprove(
+    @Body() body: BulkApproveDataSetDto,
+    @Request() req,
+  ): Promise<BulkActionResultDto> {
+    return this.runBulk(body.ids, (id) => this.approveOne(id, body, req));
+  }
+
+  private async rejectOne(
+    id: string,
+    rejectionReason: RejectionInput,
+    req,
+  ): Promise<any> {
     const queryRunner: QueryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -202,15 +229,54 @@ export class ReviewerTaskDistributionController {
     }
   }
 
-  @Put('/pm/approve/:dataset_id')
+  @Put('/reject/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.PROJECT_MANAGER)
-  async approveByProjectManager(
-    @Param('dataset_id', ParseUUIDPipe) id: string,
-    @Body() body: ApproveDataSetDto,
+  @Roles(Role.REVIEWER)
+  async reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() rejectionReason: CreateRejectionDto,
     @Request() req,
   ) {
-    // create query runner
+    return this.rejectOne(id, rejectionReason, req);
+  }
+
+  @Put('/bulk-reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.REVIEWER)
+  async bulkReject(
+    @Body() body: BulkRejectDataSetDto,
+    @Request() req,
+  ): Promise<BulkActionResultDto> {
+    return this.runBulk(body.ids, (id) => this.rejectOne(id, body, req));
+  }
+
+  /**
+   * Runs an action against each id independently (own transaction per id via
+   * the underlying service call), so one failure doesn't roll back the
+   * whole batch -- partial success is reported back rather than all-or-nothing.
+   */
+  private async runBulk(
+    ids: string[],
+    action: (id: string) => Promise<any>,
+  ): Promise<BulkActionResultDto> {
+    const succeeded: string[] = [];
+    const failed: { id: string; error: string }[] = [];
+    for (const id of ids) {
+      try {
+        await action(id);
+        succeeded.push(id);
+      } catch (error: any) {
+        failed.push({ id, error: error?.message || 'Unknown error' });
+      }
+    }
+    return { succeeded, failed };
+  }
+
+  private async approveByProjectManagerOne(
+    id: string,
+    body: ApproveDataSetDto,
+    req,
+  ): Promise<void> {
     const queryRunner: QueryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -231,9 +297,6 @@ export class ReviewerTaskDistributionController {
         entity_id: id,
       });
       await queryRunner.commitTransaction();
-      return {
-        message: 'Data set approved successfully',
-      };
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
@@ -248,14 +311,37 @@ export class ReviewerTaskDistributionController {
     }
   }
 
-  @Put('/pm/reject/:dataset_id')
+  @Put('/pm/approve/:dataset_id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.PROJECT_MANAGER)
-  async rejectByProjectManager(
+  async approveByProjectManager(
     @Param('dataset_id', ParseUUIDPipe) id: string,
-    @Body() rejectionReason: CreateRejectionDto,
+    @Body() body: ApproveDataSetDto,
     @Request() req,
   ) {
+    await this.approveByProjectManagerOne(id, body, req);
+    return {
+      message: 'Data set approved successfully',
+    };
+  }
+
+  @Put('/pm/bulk-approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PROJECT_MANAGER)
+  async bulkApproveByProjectManager(
+    @Body() body: BulkApproveDataSetDto,
+    @Request() req,
+  ): Promise<BulkActionResultDto> {
+    return this.runBulk(body.ids, (id) =>
+      this.approveByProjectManagerOne(id, body, req),
+    );
+  }
+
+  private async rejectByProjectManagerOne(
+    id: string,
+    rejectionReason: RejectionInput,
+    req,
+  ): Promise<any> {
     const queryRunner: QueryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -296,15 +382,34 @@ export class ReviewerTaskDistributionController {
     }
   }
 
-  @Put('/qa/approve/:dataset_id')
+  @Put('/pm/reject/:dataset_id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.QA)
-  async approveByQA(
+  @Roles(Role.PROJECT_MANAGER)
+  async rejectByProjectManager(
     @Param('dataset_id', ParseUUIDPipe) id: string,
-    @Body() body: ApproveDataSetDto,
+    @Body() rejectionReason: CreateRejectionDto,
     @Request() req,
   ) {
-    // create query runner
+    return this.rejectByProjectManagerOne(id, rejectionReason, req);
+  }
+
+  @Put('/pm/bulk-reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PROJECT_MANAGER)
+  async bulkRejectByProjectManager(
+    @Body() body: BulkRejectDataSetDto,
+    @Request() req,
+  ): Promise<BulkActionResultDto> {
+    return this.runBulk(body.ids, (id) =>
+      this.rejectByProjectManagerOne(id, body, req),
+    );
+  }
+
+  private async approveByQAOne(
+    id: string,
+    body: ApproveDataSetDto,
+    req,
+  ): Promise<void> {
     const queryRunner: QueryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -325,9 +430,6 @@ export class ReviewerTaskDistributionController {
         entity_id: id,
       });
       await queryRunner.commitTransaction();
-      return {
-        message: 'Data set approved successfully',
-      };
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
@@ -342,14 +444,35 @@ export class ReviewerTaskDistributionController {
     }
   }
 
-  @Put('/qa/reject/:dataset_id')
+  @Put('/qa/approve/:dataset_id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.QA)
-  async rejectByQA(
+  async approveByQA(
     @Param('dataset_id', ParseUUIDPipe) id: string,
-    @Body() rejectionReason: CreateRejectionDto,
+    @Body() body: ApproveDataSetDto,
     @Request() req,
   ) {
+    await this.approveByQAOne(id, body, req);
+    return {
+      message: 'Data set approved successfully',
+    };
+  }
+
+  @Put('/qa/bulk-approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.QA)
+  async bulkApproveByQA(
+    @Body() body: BulkApproveDataSetDto,
+    @Request() req,
+  ): Promise<BulkActionResultDto> {
+    return this.runBulk(body.ids, (id) => this.approveByQAOne(id, body, req));
+  }
+
+  private async rejectByQAOne(
+    id: string,
+    rejectionReason: RejectionInput,
+    req,
+  ): Promise<any> {
     const queryRunner: QueryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -388,6 +511,27 @@ export class ReviewerTaskDistributionController {
         }
       }
     }
+  }
+
+  @Put('/qa/reject/:dataset_id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.QA)
+  async rejectByQA(
+    @Param('dataset_id', ParseUUIDPipe) id: string,
+    @Body() rejectionReason: CreateRejectionDto,
+    @Request() req,
+  ) {
+    return this.rejectByQAOne(id, rejectionReason, req);
+  }
+
+  @Put('/qa/bulk-reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.QA)
+  async bulkRejectByQA(
+    @Body() body: BulkRejectDataSetDto,
+    @Request() req,
+  ): Promise<BulkActionResultDto> {
+    return this.runBulk(body.ids, (id) => this.rejectByQAOne(id, body, req));
   }
 
   @Get('/qa/tasks')
