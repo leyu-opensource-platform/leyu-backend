@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsUUID } from 'class-validator';
 
 export class ProjectStatisticsDto {
   @ApiProperty()
@@ -10,6 +10,15 @@ export class ProjectStatisticsDto {
   @ApiProperty({ enum: ['WEEKLY', 'MONTHLY', 'YEARLY'] })
   @IsEnum(['WEEKLY', 'MONTHLY', 'YEARLY'])
   view_type: 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+
+  // Reference point for the WEEKLY 7-day window / MONTHLY 12-month year --
+  // lets the dashboard page to an earlier week/year instead of always
+  // showing the window ending today. Defaults to "now" server-side when
+  // omitted, preserving the existing behavior.
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsDateString()
+  anchor_date?: string;
 }
 export class TaskStatisticsDto {
   @ApiProperty({ enum: ['WEEKLY', 'MONTHLY', 'YEARLY'] })

@@ -59,6 +59,7 @@ export class ProjectStatisticsController {
       projectDto.view_type,
       projectDto.project_id,
       req.user.id,
+      projectDto.anchor_date,
     );
   }
 

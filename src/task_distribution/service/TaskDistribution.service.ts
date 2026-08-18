@@ -516,7 +516,10 @@ export class TaskDistributionService {
           data.expected_no_of_contributors_per_micro_task,
       });
     }
-    microTaskStatics = [...microTaskStatics, ...data.microTaskStatistics];
+    microTaskStatics = orderMicroTasksForAssignment([
+      ...microTaskStatics,
+      ...data.microTaskStatistics,
+    ]);
 
     let micro_task_index = 0;
     for (let index = 0; index < data.contributor_ids.length; index++) {
@@ -531,6 +534,9 @@ export class TaskDistributionService {
         });
         if (microTaskAlreadyDone) {
           micro_task_index++;
+          if (micro_task_index >= microTaskStatics.length) {
+            micro_task_index = 0;
+          }
           iterator++;
           continue;
         }
@@ -758,7 +764,10 @@ export class TaskDistributionService {
           data.expected_no_of_contributors_per_micro_task,
       });
     }
-    microTaskStatics = [...microTaskStatics, ...data.microTaskStatistics];
+    microTaskStatics = orderMicroTasksForAssignment([
+      ...microTaskStatics,
+      ...data.microTaskStatistics,
+    ]);
     let micro_task_index = 0;
     for (let index = 0; index < data.contributor_ids.length; index++) {
       let iterator = 0;
@@ -766,13 +775,20 @@ export class TaskDistributionService {
       let totalAssignedMicroTasks = 0;
       const contributor = data.contributor_ids[index];
       while (iterator < microTaskStatics.length) {
-        const microTask = microTaskStatics[iterator];
+        // Index with the rotating pointer, not `iterator`. `iterator` restarts at 0 for every
+        // contributor, so using it made every contributor scan from the front of the list and
+        // pile onto the same earliest prompts. `micro_task_index` carries across contributors,
+        // matching the behaviour of distributeNewTask above.
+        const microTask = microTaskStatics[micro_task_index];
         let totalAssignedSoFar=totalAssignedMicroTasks+ parseInt(contributor.submission_count);
         const microTaskAlreadyDone = contributor.micro_task_ids.some((micro_task_id) => {
           return micro_task_id == microTask.micro_task_id;
         });
         if (microTaskAlreadyDone) {
           micro_task_index++;
+          if (micro_task_index >= microTaskStatics.length) {
+            micro_task_index = 0;
+          }
           iterator++;
           continue;
         }
@@ -802,10 +818,8 @@ export class TaskDistributionService {
             microTask.total_female++;
             totalAssignedMicroTasks++;
           }
-          micro_task_index++;
-          if (micro_task_index >= microTaskStatics.length) {
-            micro_task_index = 0;
-          }
+          // NOTE: no pointer advance here. The single advance below covers every branch —
+          // incrementing in both places would skip one micro-task per assignment.
         }
 
         micro_task_index++;
@@ -1146,4 +1160,37 @@ export class TaskDistributionService {
         micro_task_ids: r.micro_task_ids ? r.micro_task_ids.split(',') : [],
       }));
     }
+}
+
+/**
+ * Fisher-Yates shuffle, in place. Mirrors the helper in ReviewerTaskDistribution.service.ts.
+ */
+function shuffleInPlace<T>(items: T[]): T[] {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
+}
+
+/**
+ * Orders micro-tasks for assignment so coverage stays even across the whole prompt set.
+ *
+ * Two problems this solves:
+ *  1. Micro-tasks arrive in upload order (`created_date ASC`), and prompt sheets are usually
+ *     grouped by topic. Assigning in that order means the tail of the sheet is never recorded
+ *     when there are more prompts than contributor slots — whole topics silently go missing.
+ *  2. Prompts that already have recordings would otherwise keep getting picked ahead of
+ *     prompts that have none.
+ *
+ * Strategy: shuffle first, then stable-sort by current contributor count ascending. Result is
+ * "least-covered first, random order among equally-covered" — so no prompt gets a 3rd recording
+ * while another still has none, and the choice among ties is unbiased.
+ */
+function orderMicroTasksForAssignment<T extends { no_of_contributors: number }>(
+  microTasks: T[],
+): T[] {
+  return shuffleInPlace([...microTasks]).sort(
+    (a, b) => a.no_of_contributors - b.no_of_contributors,
+  );
 }

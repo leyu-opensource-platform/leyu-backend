@@ -241,6 +241,10 @@ export class DataSetController {
       { page, limit },
     );
 
+    // Presign the raw MinIO object keys so the dashboard audio player can load them —
+    // otherwise file_path is a bare key and the player shows "Failed to load audio".
+    await this.dataSetService.presignDataSetFilePaths(data.result);
+
     const result = data.result.map((item) => DataSetSanitize.from(item));
     return {
       ...data,
@@ -297,5 +301,12 @@ export class DataSetController {
       ...dataDto,
       updated_by: req.user.id,
     });
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.CONTRIBUTOR)
+  async remove(@Param('id') id: string, @Request() req) {
+    return this.dataSetService.remove(id);
   }
 }

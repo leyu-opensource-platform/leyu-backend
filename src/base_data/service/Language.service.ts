@@ -34,6 +34,7 @@ export class LanguageService {
       { name: 'AfanOromo', code: 'om' },
       { name: 'Sidama', code: 'sid' },
       { name: 'Somali', code: 'so' },
+      { name: 'Gamo', code: 'gmv' },
     ];
     try {
       await Promise.all(

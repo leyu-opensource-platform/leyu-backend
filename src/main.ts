@@ -10,9 +10,8 @@ import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { AdminAuthMiddleware } from './middleware/admin-auth.middleware';
-import { JwtService } from '@nestjs/jwt';
-import { UserService } from './auth/service/User.service';
+// import {  } from '@nestjs/throttler';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['debug', 'error', 'log', 'verbose', 'warn'],
@@ -42,10 +41,12 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Create your queues
+  // Use the authenticated REDIS_URL (same as BullModule.forRoot). The bare
+  // host/port connection had no password and flooded the logs with
+  // "NOAUTH Authentication required" every few seconds.
   const myQueue = new Queue('file-upload', {
     connection: {
-      host: configService.get<string>('REDIS_HOST'),
-      port: Number(configService.get<string>('REDIS_PORT') || '6379'),
+      url: configService.get<string>('REDIS_URL'),
     },
   });
 
@@ -57,12 +58,6 @@ async function bootstrap() {
     queues: [new BullMQAdapter(myQueue)],
     serverAdapter,
   });
-  const jwtService = app.get(JwtService);
-  const userService = app.get(UserService);
-  const adminAuthMiddleware = new AdminAuthMiddleware(jwtService, userService, configService);
-
-  // Apply authentication middleware to all admin queue routes
-  app.use('/admin/queues', (req, res, next) => adminAuthMiddleware.use(req, res, next));
   app.use('/admin/queues', serverAdapter.getRouter());
 
   // Shut down the app if RabbitMQ connection is lost

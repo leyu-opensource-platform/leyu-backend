@@ -82,4 +82,7 @@ export class MicroTask {
 
   @Column({ nullable: true, type: 'uuid' })
   derived_from_dataset_id: string;
+
+  @Column({ default: false })
+  is_reported: boolean;
 }

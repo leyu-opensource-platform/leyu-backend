@@ -16,7 +16,6 @@ import {
   NotFoundException,
   Patch,
   ValidationPipe,
-  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -88,31 +87,7 @@ export class ProjectController {
       },
     },
   })
-  @UseInterceptors(FileInterceptor('image', { 
-      storage: multerImageS3Storage ,
-      limits:{
-        fileSize:5 * 1024 * 1024
-      }, // 5 MB,
-      fileFilter: (req, file, cb) => {
-        const allowedMimeTypes = [
-          'image/jpeg',
-          'image/png',
-          'image/webp',
-        ];
-  
-        if (allowedMimeTypes.includes(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(
-            new BadRequestException(
-              'Only JPEG, PNG, and WebP images are allowed',
-            ),
-            false,
-          );
-        }
-      }
-  
-    }))
+  @UseInterceptors(FileInterceptor('image', { storage: multerImageS3Storage }))
   async create(
     @UploadedFile() file: any,
     @Body()
@@ -400,31 +375,7 @@ export class ProjectController {
       },
     },
   })
-  @UseInterceptors(FileInterceptor('image', { 
-    storage: multerImageS3Storage ,
-    limits:{
-      fileSize:5 * 1024 * 1024
-    }, // 5 MB,
-    fileFilter: (req, file, cb) => {
-      const allowedMimeTypes = [
-        'image/jpeg',
-        'image/png',
-        'image/webp',
-      ];
-
-      if (allowedMimeTypes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(
-          new BadRequestException(
-            'Only JPEG, PNG, and WebP images are allowed',
-          ),
-          false,
-        );
-      }
-    }
-
-  }))
+  @UseInterceptors(FileInterceptor('image', { storage: multerImageS3Storage }))
   async update(
     @UploadedFile() file: any,
     @Param('id') id: string,
