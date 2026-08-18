@@ -20,6 +20,11 @@ export class TaskMembersListResponseDto {
   is_active: boolean;
   @ApiProperty()
   score: number;
+  @ApiProperty({
+    description:
+      "Count of this contributor's audio submissions to this task, any status (excludes drafts and test-batch clips)",
+  })
+  submission_count: number;
   @ApiProperty()
   status: UserTaskStatus;
 
