@@ -23,6 +23,8 @@ import { DataSetReview } from './enitities/DataSetReview.entity';
 import { ReviewerTaskDistributionController } from './controllers/ReviewerTask.controller';
 import { BaseDataModule } from 'src/base_data/base_data.module';
 import { YcI18nModule } from 'src/yc-i18n/yc-i18n.module';
+import { MicroTask } from 'src/data_set/entities/MicroTask.entity';
+import { MicroTaskReport } from 'src/data_set/entities/MicroTaskReport.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -30,6 +32,8 @@ import { YcI18nModule } from 'src/yc-i18n/yc-i18n.module';
       ContributorMicroTasks,
       MicroTaskStatistics,
       DataSetReview,
+      MicroTask,
+      MicroTaskReport,
     ]),
     CacheModule,
     ProjectModule,

@@ -21,12 +21,17 @@ export class SuperAdminStatisticsController {
   }
   @Get('/dataset-contribution')
   @ApiQuery({ name: 'view_type', enum: ['WEEKLY', 'MONTHLY', 'YEARLY'] })
+  @ApiQuery({ name: 'anchor_date', required: false })
   async getAllDataSets(
     @Query('view_type') view_type: 'WEEKLY' | 'MONTHLY' | 'YEARLY' = 'WEEKLY',
+    @Query('anchor_date') anchor_date: string | undefined,
     @Request() req,
   ) {
     const user_id = req.user.id;
-    return await this.superAdminStatistics.getDataSetStatistics(view_type);
+    return await this.superAdminStatistics.getDataSetStatistics(
+      view_type,
+      anchor_date,
+    );
   }
   @Get('/dataset-language')
   async getDataSetsPerLanguageAndDialect(

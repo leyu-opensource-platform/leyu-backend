@@ -20,7 +20,14 @@ export class SuperAdminStatistics {
   ) {}
   async getAllStatistics() {
     // datasets
-    // let total_data_sets:number=await this.dataSetService.count({});
+    // Previously commented out because it called dataSetService.count({}),
+    // which is actually the WEEKLY/MONTHLY/YEARLY chart-grouping method (it
+    // takes a view_type and returns an array of {date, count} rows, not a
+    // total) -- passing {} always fell through to its `return []` branch, a
+    // type mismatch that's presumably why this got disabled rather than
+    // fixed. countAll() (already used the same way on the PM/project
+    // dashboard's equivalent stat) is the correct total-count method.
+    const total_data_sets: number = await this.dataSetService.countAll({});
     const total_micro_tasks: number = await this.microTaskService.count({});
 
     // tasks
@@ -43,7 +50,7 @@ export class SuperAdminStatistics {
     const total_languages = await this.languageService.count({});
     const total_dialects = await this.dialectService.count({});
     return {
-      // total_data_sets,
+      total_data_sets,
       total_micro_tasks,
       total_projects,
       total_tasks,
@@ -57,8 +64,9 @@ export class SuperAdminStatistics {
   }
   async getDataSetStatistics(
     view_type: 'WEEKLY' | 'MONTHLY' | 'YEARLY' = 'WEEKLY',
+    anchor_date?: string,
   ): Promise<any[]> {
-    return this.dataSetService.count(view_type);
+    return this.dataSetService.count(view_type, anchor_date);
   }
   async getDataSetByDialectAndLanguage(view_type: 'LANGUAGE' | 'DIALECT') {
     if (view_type == 'LANGUAGE') {

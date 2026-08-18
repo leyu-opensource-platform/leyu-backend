@@ -19,7 +19,7 @@ import { DataSetStatus } from 'src/utils/constants/DataSetStatus.constant';
 import { DataSetType, taskTypes } from 'src/utils/constants/Task.constant';
 import { TaskRequirement } from 'src/project/entities/TaskRequirement.entity';
 import { User } from 'src/auth/entities/User.entity';
-import { startOfDay, startOfYear, subDays } from 'date-fns';
+import { endOfDay, endOfYear, startOfDay, startOfYear, subDays } from 'date-fns';
 import { DataSetAnnotationService } from 'src/base_data/service/DataSetAnnotation.service';
 import { DataSetSanitize, MicroTaskSanitize } from '../sanitize';
 import { TaskSubmissionsDto } from '../dto/DataSet.dto';
@@ -55,6 +55,34 @@ export class DataSetService {
   ) {
     this.paginateService = new PaginationService<DataSet>(
       this.dataSetRepository,
+    );
+  }
+
+  /**
+   * Replace the raw MinIO object keys in each submission's `file_path` (and its prompt
+   * microTask's `file_path`, when it has media) with presigned URLs the browser can
+   * actually fetch. Mutates the passed entities in place.
+   *
+   * Without this, endpoints that return DataSets straight from the repository (e.g. the
+   * PM/Reviewer "submissions for this micro task" list) hand the dashboard a bare object
+   * key like `audios/1786..-clip.m4a`, and the audio player fails with
+   * "Failed to load audio". Empty file_paths (text prompts have no media) are left as-is
+   * so the frontend's `microTask?.file_path` guard still correctly hides the media slot.
+   */
+  async presignDataSetFilePaths(dataSets: DataSet[]): Promise<void> {
+    await Promise.all(
+      dataSets.map(async (dataSet) => {
+        if (dataSet.file_path) {
+          dataSet.file_path = await this.fileService.getPreSignedUrl(
+            dataSet.file_path,
+          );
+        }
+        if (dataSet.microTask?.file_path) {
+          dataSet.microTask.file_path = await this.fileService.getPreSignedUrl(
+            dataSet.microTask.file_path,
+          );
+        }
+      }),
     );
   }
   /**
@@ -145,7 +173,12 @@ export class DataSetService {
         code,
         contributor_id,
         type: DataSetType.AUDIO,
-        queue_status: 'pending',
+        // Uploads are now performed synchronously in the request that creates
+        // these rows (see TaskDistribution.controller `contributeMultipleSpeech`),
+        // so the clip is already in MinIO -- mark it completed rather than
+        // 'pending', which would otherwise leave the contributor's `isQueued`
+        // flag stuck true forever now that no background worker flips it.
+        queue_status: 'completed',
         audio_duration: item.audio_duration,
       });
     });
@@ -439,15 +472,24 @@ export class DataSetService {
    */
   async count(
     view_type: 'WEEKLY' | 'MONTHLY' | 'YEARLY' = 'WEEKLY',
+    anchor_date?: string,
   ): Promise<any[]> {
+    // anchor defaults to "now" -- preserves the original always-trailing-window
+    // behavior when the caller doesn't ask to page to an earlier week/year.
+    const anchor: Date = anchor_date ? new Date(anchor_date) : new Date();
     if (view_type == 'WEEKLY') {
-      const sevenDaysAgo: Date = startOfDay(subDays(new Date(), 6)); // Includes today
+      const sevenDaysAgo: Date = startOfDay(subDays(anchor, 6)); // Includes the anchor day
       const seven_days_ago = sevenDaysAgo.toISOString();
+      const window_end = endOfDay(anchor).toISOString();
       const result = await this.dataSetRepository
         .createQueryBuilder('dataset')
         .select("DATE_TRUNC('day', dataset.created_date)", 'date')
         .addSelect('COUNT(*)', 'count')
         .where('dataset.created_date >= :seven_days_ago', { seven_days_ago })
+        // Upper bound matters once anchor_date is in the past -- without it,
+        // a "previous week" query would keep counting everything through
+        // today instead of stopping at the end of that week.
+        .andWhere('dataset.created_date <= :window_end', { window_end })
         .groupBy("DATE_TRUNC('day', dataset.created_date)")
         .orderBy("DATE_TRUNC('day', dataset.created_date)", 'ASC')
         .getRawMany();
@@ -456,13 +498,17 @@ export class DataSetService {
         count: r.count,
       }));
     } else if (view_type == 'MONTHLY') {
-      const start_date_year = startOfYear(new Date());
+      const start_date_year = startOfYear(anchor);
       const first_month = start_date_year.toISOString();
+      const last_month = endOfYear(anchor).toISOString();
       const result = await this.dataSetRepository
         .createQueryBuilder('dataset')
         .select("DATE_TRUNC('month', dataset.created_date)", 'date')
         .addSelect('COUNT(*)', 'count')
         .where('dataset.created_date >= :first_month', { first_month })
+        // Same reasoning as WEEKLY's upper bound -- a past-year anchor must
+        // not pull in months from the following year(s).
+        .andWhere('dataset.created_date <= :last_month', { last_month })
         .groupBy("DATE_TRUNC('month', dataset.created_date)")
         .orderBy("DATE_TRUNC('month', dataset.created_date)", 'ASC')
         .getRawMany();
@@ -494,6 +540,46 @@ export class DataSetService {
    */
   async countAll(query: FindOptionsWhere<DataSet>): Promise<number> {
     return await this.dataSetRepository.count({ where: query });
+  }
+  /**
+   * Review-turnaround stats for currently-pending submissions: average and
+   * oldest time-since-submission, in hours. Nothing like this existed
+   * anywhere on the platform before -- dashboards only ever showed counts
+   * (pending/approved/total), never how long items have actually been
+   * sitting, which is the metric a PM/reviewer needs to spot a queue that's
+   * silently stalling instead of just being large.
+   */
+  async getPendingAgeStats(
+    micro_task_ids: string[],
+  ): Promise<{ avg_pending_hours: number; oldest_pending_hours: number; pending_count: number }> {
+    if (micro_task_ids.length === 0) {
+      return { avg_pending_hours: 0, oldest_pending_hours: 0, pending_count: 0 };
+    }
+    const result = await this.dataSetRepository
+      .createQueryBuilder('dataset')
+      .select(
+        'AVG(EXTRACT(EPOCH FROM (NOW() - dataset.created_date)) / 3600.0)',
+        'avg_hours',
+      )
+      .addSelect(
+        'MAX(EXTRACT(EPOCH FROM (NOW() - dataset.created_date)) / 3600.0)',
+        'max_hours',
+      )
+      .addSelect('COUNT(*)', 'pending_count')
+      .where('dataset.status = :status', { status: DataSetStatus.PENDING })
+      .andWhere('dataset.micro_task_id IN (:...micro_task_ids)', {
+        micro_task_ids,
+      })
+      .getRawOne();
+    return {
+      avg_pending_hours: result?.avg_hours
+        ? Math.round(parseFloat(result.avg_hours) * 10) / 10
+        : 0,
+      oldest_pending_hours: result?.max_hours
+        ? Math.round(parseFloat(result.max_hours) * 10) / 10
+        : 0,
+      pending_count: parseInt(result?.pending_count, 10) || 0,
+    };
   }
   /**
    * Get the count of datasets per day/month/year for a given task.
@@ -577,15 +663,24 @@ export class DataSetService {
   async countByMicroTasks(
     view_type: 'WEEKLY' | 'MONTHLY' | 'YEARLY',
     micro_task_ids: string[],
+    anchor_date?: string,
   ): Promise<any[]> {
+    // anchor defaults to "now" -- preserves the original always-trailing-window
+    // behavior when the caller doesn't ask to page to an earlier week/year.
+    const anchor: Date = anchor_date ? new Date(anchor_date) : new Date();
     if (view_type == 'WEEKLY') {
-      const sevenDaysAgo: Date = startOfDay(subDays(new Date(), 6)); // Includes today
+      const sevenDaysAgo: Date = startOfDay(subDays(anchor, 6)); // Includes the anchor day
       const seven_days_ago = sevenDaysAgo.toISOString();
+      const window_end = endOfDay(anchor).toISOString();
       const result = await this.dataSetRepository
         .createQueryBuilder('dataset')
         .select("DATE_TRUNC('day', dataset.created_date)", 'date')
         .addSelect('COUNT(*)', 'count')
         .where('dataset.created_date >= :seven_days_ago', { seven_days_ago })
+        // Upper bound matters once anchor_date is in the past -- without it,
+        // a "previous week" query would keep counting everything through
+        // today instead of stopping at the end of that week.
+        .andWhere('dataset.created_date <= :window_end', { window_end })
         .andWhere('dataset.micro_task_id IN (:...micro_task_ids)', {
           micro_task_ids,
         })
@@ -597,13 +692,17 @@ export class DataSetService {
         count: r.count,
       }));
     } else if (view_type == 'MONTHLY') {
-      const start_date_year = startOfYear(new Date());
+      const start_date_year = startOfYear(anchor);
       const first_month = start_date_year.toISOString();
+      const last_month = endOfYear(anchor).toISOString();
       const result = await this.dataSetRepository
         .createQueryBuilder('dataset')
         .select("DATE_TRUNC('month', dataset.created_date)", 'date')
         .addSelect('COUNT(*)', 'count')
         .where('dataset.created_date >= :first_month', { first_month })
+        // Same reasoning as WEEKLY's upper bound -- a past-year anchor must
+        // not pull in months from the following year(s).
+        .andWhere('dataset.created_date <= :last_month', { last_month })
         .andWhere('dataset.micro_task_id IN (:...micro_task_ids)', {
           micro_task_ids,
         })
@@ -874,7 +973,7 @@ export class DataSetService {
       ),
       current_retry: microTask.dataSets.length,
       allowed_retry: microTask.task.taskRequirement.max_retry_per_task,
-      can_retry: hasApprovedOrPendingDatasets ? false : hasReachedMaxRetry,
+      can_retry: hasApprovedOrPendingDatasets ? false : !hasReachedMaxRetry,
     };
   }
   async getTaskDataSetReviewStats(

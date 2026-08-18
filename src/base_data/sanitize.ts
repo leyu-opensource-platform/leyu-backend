@@ -94,6 +94,8 @@ export class DataSetAnnotationSanitized {
   @ApiProperty()
   description: string;
   @ApiProperty()
+  sentiment: string;
+  @ApiProperty()
   created_date: Date;
   static from(
     dataSetAnnotation: DataSetAnnotation,
@@ -109,6 +111,7 @@ export class DataSetAnnotationSanitized {
           : dataSetAnnotation.name,
       alternative_names: dataSetAnnotation.alternative_names,
       description: dataSetAnnotation.description,
+      sentiment: dataSetAnnotation.sentiment,
       created_date: dataSetAnnotation.created_date,
     };
   }

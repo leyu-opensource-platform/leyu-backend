@@ -14,11 +14,11 @@ import {
   Patch,
   ParseUUIDPipe,
   ValidationPipe,
-  BadRequestException,
 } from '@nestjs/common';
 import { UserService } from '../service/User.service';
 import {
   CreateUserDto,
+  RegisterContributorDto,
   SignUpDto,
   VerifyAccountDto,
   ChangePasswordDto,
@@ -113,6 +113,12 @@ export class UsersController {
         }
       }
     }
+  }
+
+  @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async register(@Body() body: RegisterContributorDto) {
+    return this.usersService.registerContributor(body);
   }
 
   @Post('sign-up')
@@ -583,31 +589,7 @@ export class UsersController {
       },
     },
   })
-   @UseInterceptors(FileInterceptor('image', { 
-    storage: multerImageS3Storage ,
-    limits:{
-      fileSize:5 * 1024 * 1024
-    }, // 5 MB,
-    fileFilter: (req, file, cb) => {
-      const allowedMimeTypes = [
-        'image/jpeg',
-        'image/png',
-        'image/webp',
-      ];
-
-      if (allowedMimeTypes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(
-          new BadRequestException(
-            'Only JPEG, PNG, and WebP images are allowed',
-          ),
-          false,
-        );
-      }
-    }
-
-  }))
+  @UseInterceptors(FileInterceptor('image', { storage: multerImageS3Storage }))
   async updateProfilePicture(@UploadedFile() file: any, @Request() request) {
     const file_key = file.key;
     const user_id = request.user.id;
@@ -637,31 +619,7 @@ export class UsersController {
       },
     },
   })
-   @UseInterceptors(FileInterceptor('image', { 
-    storage: multerImageS3Storage ,
-    limits:{
-      fileSize:5 * 1024 * 1024
-    }, // 5 MB,
-    fileFilter: (req, file, cb) => {
-      const allowedMimeTypes = [
-        'image/jpeg',
-        'image/png',
-        'image/webp',
-      ];
-
-      if (allowedMimeTypes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(
-          new BadRequestException(
-            'Only JPEG, PNG, and WebP images are allowed',
-          ),
-          false,
-        );
-      }
-    }
-
-  }))
+  @UseInterceptors(FileInterceptor('image', { storage: multerImageS3Storage }))
   async updateNationalIdInage(@UploadedFile() file: any, @Request() request) {
     const file_key = file.key;
     const user_id = request.user.id;

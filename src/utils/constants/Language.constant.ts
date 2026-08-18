@@ -5,4 +5,5 @@ export enum LanguageConstants {
   SIDAMA = 'sid',
   TIGRIGNA = 'tg',
   SOMALI = 'som',
+  GAMO = 'gmv',
 }

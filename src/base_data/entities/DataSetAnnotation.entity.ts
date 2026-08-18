@@ -29,6 +29,14 @@ export class DataSetAnnotation {
   @Column()
   description: string;
 
+  // Polarity of the annotation: 'positive' | 'negative' | 'neutral'. Drives which
+  // review dialog surfaces it — the Approve dialog only offers 'positive' tags,
+  // while the Reject flow uses the separate rejection-reason list. Nullable so
+  // annotations created before this column (or via the admin UI without a value)
+  // simply don't appear in the positive-only Approve picker until classified.
+  @Column({ type: 'varchar', nullable: true })
+  sentiment: string;
+
   @Column({ nullable: true })
   created_by: string;
 

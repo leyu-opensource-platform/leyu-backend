@@ -48,8 +48,10 @@ import { TaskRedistributionService } from '../service/TaskRedistribution.service
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ReviewerTaskDistributionsService } from '../service/ReviewerTaskDistribution.service';
-import { unlink } from 'fs';
+import { unlink, createReadStream } from 'fs';
 import { promisify } from 'util';
+import { ContributorMicroTaskService } from '../service/ContributorMicroTask.service';
+import { ReportMicroTaskDto } from '../dto/ReportMicroTask.dto';
 export const unlinkAsync = promisify(unlink);
 
 @Controller('task-distribution')
@@ -65,6 +67,7 @@ export class TaskDistributionController {
     private readonly fileService: FileService,
     private readonly audioService: AudioService,
     private readonly dataSource: DataSource,
+    private readonly contributorMicroTaskService: ContributorMicroTaskService,
     @InjectQueue('file-upload')
     private readonly fileQueue: Queue,
   ) {}
@@ -280,6 +283,19 @@ export class TaskDistributionController {
     }
   }
 
+  @Post('/re-distribution')
+  @ApiOperation({ summary: 'Initialize task distribution' })
+  @ApiResponse({ status: 201, description: 'Task distribution initialized' })
+  async initializeTaskReDistribution() {
+    return this.taskRedistributionService.initializeTaskRedistribution();
+  }
+  // @Post('/contributor/:id')
+  // @ApiOperation({ summary: 'Initialize task distribution' })
+  // @ApiResponse({ status: 201, description: 'Task distribution initialized' })
+  // async initializeTaskReDistributionForContributor(@Param('id') contributor_id:string) {
+  //     return this.taskDistributionService.initializeTaskDistributionForContributor({user_id:contributor_id})
+  // }
+
   @Post('/:task_id/contribute_audio')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.CONTRIBUTOR)
@@ -310,76 +326,81 @@ export class TaskDistributionController {
       throw new BadRequestException('At least one file is required');
     }
 
-    console.log("Request body ",req.body);
     const submissions: {
       micro_task_id: string;
       file_path: string;
-      audio_duration: any;
+      audio_duration: number;
     }[] = [];
-    let { is_test, audio_duration } = req.body;
+    let { is_test } = req.body;
     is_test = is_test === 'true' || is_test === true;
-    
-    // Parse audio_duration[micro_task_id] fields sent by the Dart client
-    // Dart sends: audio_duration[some-uuid] = "1.23"
-    const durationMap: Record<string, number> = {};
-    if(req.body.audio_duration){
-      for (const [key, value] of Object.entries(req.body.audio_duration as Record<string, string>)) {
-        const match = key.match(/^audio_duration\[(.+)\]$/);
-        // if (match) {
-          const microTaskId = key;
-          const parsed = parseFloat(value);
-          durationMap[microTaskId] = isNaN(parsed) ? 0 : parsed;
-        // }
-      } 
-    }
-    
 
     try {
+      // Audio duration is measured directly from the uploaded file server-side
+      // rather than trusted from the client, since it's a hard validation gate.
       for (const file of files) {
+        const audio_duration = await this.audioService.getAudioDuration(
+          file.path,
+        );
         submissions.push({
           micro_task_id: file.fieldname,
-          file_path: '',
-          audio_duration: durationMap[file.fieldname] ?? 0
+          file_path: 'audios/' + file.filename,
+          audio_duration,
         });
       }
-      const data_Sets =
-        await this.taskSubmissionService.submitMultipleAudioDatasets(
-          req.user.id,
-          submissions,
-          task_id,
-          is_test,
-        );
+      // Validate + persist first: submitMultipleAudioDatasets enforces the
+      // 10-60s duration gate and throws before anything is uploaded when the
+      // batch is invalid, so a rejected batch never leaves orphan objects.
+      await this.taskSubmissionService.submitMultipleAudioDatasets(
+        req.user.id,
+        submissions,
+        task_id,
+        is_test,
+      );
+      // Upload each clip to MinIO synchronously, in-request, using the temp file
+      // that is guaranteed to exist on THIS instance. The previous design
+      // enqueued a BullMQ job to upload later, but on Cloud Run the worker is
+      // CPU-throttled after the response (and the instance-local temp file is
+      // gone once the instance recycles), so file_path was never backfilled and
+      // reviewers saw "No answer text available". Doing it here removes the
+      // Redis/worker dependency for this path entirely.
       for (const file of files) {
-        const d = data_Sets.find((d) => d.micro_task_id == file.fieldname);
-        if (!d) {
-          continue;
-        }
-        await this.fileQueue.add(
-          'upload',
-          {
-            path: file.path,
-            filename: file.filename,
-            mimetype: file.mimetype,
-            dataSetId: d.id,
-          },
-          {
-            removeOnComplete: true,
-            attempts: 3,
-            backoff: {
-              type: 'exponential',
-              delay: 2000,
-            },
-          },
+        const stream = createReadStream(file.path);
+        await this.fileService.uploadAudioFiles(
+          file.filename,
+          stream,
+          file.mimetype,
         );
       }
+      // Temp files are in MinIO now; best-effort local cleanup.
+      await Promise.all(
+        files.map((file) => unlinkAsync(file.path).catch(() => undefined)),
+      );
       return submissions;
     } catch (error) {
       await Promise.all(
-        files.map(async (file) => {
-          await unlinkAsync(file.path);
-        }),
+        files.map((file) => unlinkAsync(file.path).catch(() => undefined)),
       );
       throw error;
     }
+  }
+
+  @Post('/:task_id/report-micro-task')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.CONTRIBUTOR)
+  @ApiOperation({
+    summary: 'Report a prompt (micro-task) and get a replacement',
+    description:
+      "Contributor reports the current prompt as nonsensical, offensive, or otherwise broken. It's excluded from future assignment and swapped for a fresh micro-task in the contributor's current batch, if one is available.",
+  })
+  async reportMicroTask(
+    @Param('task_id', new ParseUUIDPipe()) task_id: string,
+    @Body() dto: ReportMicroTaskDto,
+    @Request() req,
+  ) {
+    return this.contributorMicroTaskService.reportAndReplaceMicroTask(
+      req.user.id,
+      task_id,
+      dto,
+    );
   }
 }

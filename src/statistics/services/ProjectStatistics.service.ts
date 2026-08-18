@@ -55,6 +55,10 @@ export class ProjectStatisticsService {
       micro_task_id: In(microTasks.map((m) => m.id)),
     });
     const total_micro_tasks: number = microTasks.length;
+    const { avg_pending_hours, oldest_pending_hours, pending_count } =
+      await this.dataSetService.getPendingAgeStats(
+        microTasks.map((m) => m.id),
+      );
 
     // tasks
     const total_tasks: number = tasks.length;
@@ -86,6 +90,9 @@ export class ProjectStatisticsService {
       total_contributors,
       total_facilitators,
       total_reviewers,
+      avg_pending_hours,
+      oldest_pending_hours,
+      pending_count,
     };
   }
   async getAllTaskStatistics(user_id: string, task_id: string) {
@@ -134,6 +141,7 @@ export class ProjectStatisticsService {
     view_type: 'WEEKLY' | 'MONTHLY' | 'YEARLY' = 'WEEKLY',
     project_id?: string,
     manager_id?: string,
+    anchor_date?: string,
   ): Promise<any[]> {
     let project: Project | null = null;
     if (project_id) {
@@ -158,7 +166,11 @@ export class ProjectStatisticsService {
     if (micro_task_ids.length == 0) {
       return [];
     }
-    return this.dataSetService.countByMicroTasks(view_type, micro_task_ids);
+    return this.dataSetService.countByMicroTasks(
+      view_type,
+      micro_task_ids,
+      anchor_date,
+    );
   }
   async getDataSetStatisticsByTask(
     view_type: 'WEEKLY' | 'MONTHLY' | 'YEARLY' = 'WEEKLY',

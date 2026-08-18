@@ -92,6 +92,78 @@ export class CreateUserDto {
   role_id: string;
 }
 
+/**
+ * Public self-registration DTO for the mobile app — creates a standalone
+ * Contributor account (no phone/OTP, no task/project attached). Deliberately
+ * excludes `role_id` (server always assigns Contributor) and `phone_number`
+ * (email is the identity for this flow) so a public client can't escalate
+ * role or collide with the phone-based flow.
+ */
+export class RegisterContributorDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(3)
+  first_name: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(3)
+  middle_name: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(3)
+  last_name: string;
+
+  @ApiProperty()
+  @IsEmail()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(6)
+  password: string;
+
+  @ApiProperty({ type: String, example: '2000-01-01' })
+  @Transform(({ value }) => new Date(value))
+  @Type(() => Date)
+  @IsDate({ message: 'Invalid date format' })
+  birth_date: Date;
+
+  @ApiProperty({ enum: ['Male', 'Female'] })
+  @IsEnum(['Male', 'Female'])
+  gender: 'Male' | 'Female';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  woreda?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  dialect_id?: string;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  language_id: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  region_id?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  zone_id?: string;
+}
+
 export class FirstContributorUpdateDto {
   @ApiProperty()
   @IsString()

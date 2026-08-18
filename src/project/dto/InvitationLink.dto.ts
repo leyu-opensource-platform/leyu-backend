@@ -27,7 +27,6 @@ export enum Gender {
    INVITATION LINK DTOs
 ======================= */
 export class CreateInvitationLinkDto {
-  @IsString()
   @Transform(({ value }) => new Date(value))
   @IsDate()
   expiry_date: Date;

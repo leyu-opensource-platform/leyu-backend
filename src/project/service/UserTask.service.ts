@@ -21,6 +21,7 @@ import { UserScore } from 'src/auth/entities/UserScore.entity';
 import { TaskMembersListResponseDto } from '../rto/Task.rto';
 import { GetFacilitatorContributorsFilterDto } from 'src/auth/dto/User.dto';
 import { Task } from '../entities/Task.entity';
+import { DataSet } from 'src/data_set/entities/DataSet.entity';
 
 @Injectable()
 export class UserTaskService {
@@ -364,6 +365,23 @@ export class UserTaskService {
       'contributor_task.role AS role',
       'COALESCE(contributor_score.score, 0) AS score',
     ]);
+    // Correlated subquery rather than a join+GROUP BY -- keeps the existing
+    // getRawMany()/getCount() pair (which relies on one row per contributor)
+    // working unchanged. Scoped to this task's audio submissions specifically
+    // (excludes drafts and onboarding test-batch clips, matching the same
+    // "real submission" definition the HF export uses) so the count reflects
+    // actual dataset contribution, not qualification attempts.
+    memberQueryBuilder.addSelect((subQuery) => {
+      return subQuery
+        .select('COUNT(ds.id)::int', 'count')
+        .from(DataSet, 'ds')
+        .leftJoin('ds.microTask', 'ds_micro_task')
+        .where('ds_micro_task.task_id = :dsTaskId', { dsTaskId: taskId })
+        .andWhere('ds.contributor_id = contributor.id')
+        .andWhere('ds.type = :dsType', { dsType: 'audio' })
+        .andWhere('ds.is_draft = false')
+        .andWhere('ds.is_test = false');
+    }, 'submission_count');
     if (searchQuery.order_by) {
       if (searchQuery.order_by === 'score') {
         memberQueryBuilder.orderBy(
