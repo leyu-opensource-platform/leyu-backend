@@ -62,8 +62,8 @@ export class User {
   @Column({ nullable: true })
   profile_picture: string;
 
-  @Column({ nullable: true })
-  birth_date: Date;
+  @Column({ type: "int", nullable: true })
+  age: number;
 
   @Column({ nullable: true, enum: ['Male', 'Female'] })
   gender: 'Male' | 'Female';

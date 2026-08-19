@@ -31,6 +31,7 @@ import {
   UpdatePreferredLanguageDto,
   UpdateReferralCode,
   UserExistDto,
+  EmailRegisterDto,
   // findUserQuerySchema,
 } from '../dto/User.dto';
 import {
@@ -127,6 +128,29 @@ export class UsersController {
       throw error;
     }
   }
+
+  @Post('email-register')
+  @Throttle({ default: { limit: 3, ttl: 6000 } })
+  async emailRegister(@Body() body: EmailRegisterDto) {
+    const queryRunner: QueryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const user = await this.usersService.emailRegister(body, queryRunner);
+      await queryRunner.commitTransaction();
+      user.password = '_';
+      return { message: 'Registration successful', user };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      if (queryRunner) {
+        try { await queryRunner.release(); } catch (e) {}
+      }
+    }
+  }
+
   @Post('verify/:id')
   async verifyUser(@Param('id') id: string, @Body() body: VerifyAccountDto) {
     return this.usersService.verifyAccount(id, body.code, body.phone);
@@ -170,10 +194,7 @@ export class UsersController {
         password: {
           type: 'string',
         },
-        birth_date: {
-          type: 'string',
-          format: 'date',
-        },
+        age: { type: 'number' },
         gender: {
           type: 'string',
           enum: ['Male', 'Female'],

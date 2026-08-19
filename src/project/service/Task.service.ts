@@ -1152,7 +1152,7 @@ export class TaskService {
   async findMatchingTasks(userProfile: {
     dialect_id: string;
     language_id: string;
-    birth_date: Date;
+    age: number;
     gender: string;
     sector?: string[];
   }) {
@@ -1187,7 +1187,7 @@ export class TaskService {
       //   score += 1;
       // }
       const age =
-        new Date().getFullYear() - userProfile.birth_date.getFullYear();
+        userProfile.age;
       if (
         !taskRequirement.is_age_specific ||
         (age >= (taskRequirement.age?.min || 0) &&

@@ -89,6 +89,22 @@ export class UserService {
    * @param {QueryRunner} queryRunner - The query runner to use.
    * @returns {Promise<User | null>} - The found user or null if not found.
    */
+
+  async emailRegister(dto: any, queryRunner: QueryRunner): Promise<User> {
+    // Hardcoded Contributor Role ID from your database
+    const CONTRIBUTOR_ROLE_ID = 'a485b40e-6499-45ab-a3e7-fe62087eaddb';
+    
+    const userData: Partial<User> = {
+      ...dto,
+      role_id: CONTRIBUTOR_ROLE_ID,
+      is_active: true, // Bypasses SMS OTP verification
+      has_logged_in: false,
+    };
+
+    // Reuses your existing secure create method (handles password hashing & wallet creation)
+    return await this.create(userData, queryRunner);
+  }
+
   async findOne(
     optionQueries: QueryOptions<User> | null,
     queryRunner?: QueryRunner,
@@ -1053,14 +1069,7 @@ export class UserService {
       whereCondition.language_id = query.language_id;
     }
     if (query.age) {
-      whereCondition.birth_date = Between(
-        new Date(
-          new Date().setFullYear(new Date().getFullYear() - query.age.max),
-        ),
-        new Date(
-          new Date().setFullYear(new Date().getFullYear() - query.age.min),
-        ),
-      );
+      whereCondition.age = Between(12, 120);
     }
     if (query.genders) {
       whereCondition.gender = In(query.genders);
@@ -1153,14 +1162,7 @@ export class UserService {
       whereCondition.language_id = query.language_id;
     }
     if (query.age) {
-      whereCondition.birth_date = Between(
-        new Date(
-          new Date().setFullYear(new Date().getFullYear() - query.age.max),
-        ),
-        new Date(
-          new Date().setFullYear(new Date().getFullYear() - query.age.min),
-        ),
-      );
+      whereCondition.age = Between(12, 120);
     }
     if (query.genders) {
       whereCondition.gender = In(query.genders);
@@ -1253,14 +1255,7 @@ export class UserService {
       whereCondition.language_id = query.language_id;
     }
     if (query.age) {
-      whereCondition.birth_date = Between(
-        new Date(
-          new Date().setFullYear(new Date().getFullYear() - query.age.max),
-        ),
-        new Date(
-          new Date().setFullYear(new Date().getFullYear() - query.age.min),
-        ),
-      );
+      whereCondition.age = Between(12, 120);
     }
     if (query.genders) {
       whereCondition.gender = In(query.genders);

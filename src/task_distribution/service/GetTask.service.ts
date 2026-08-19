@@ -475,7 +475,7 @@ export class GetTasksService {
     const matchedTasks = await this.taskService.findMatchingTasks({
       dialect_id: user.dialect_id,
       language_id: user.language_id,
-      birth_date: user.birth_date,
+      age: user.age,
       gender: user.gender,
     });
 
@@ -2054,7 +2054,7 @@ export class GetTasksService {
   //   const matchedTasks = await this.taskService.findMatchingTasks({
   //     dialect_id: user.dialect_id,
   //     language_id: user.language_id,
-  //     birth_date: user.birth_date,
+  //     age: user.age,
   //     gender: user.gender,
   //   });
 

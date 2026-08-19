@@ -16,7 +16,7 @@ export const dataSourceOptions: PostgresConnectionOptions & SeederOptions = {
   synchronize:false, //process.env.NODE_ENV === 'development',   //true, // Set this to false for production use
   connectTimeoutMS: 20000,
   logging: false,
-  ssl: process.env.NODE_ENV === 'production',
+  ssl: false,
 };
 
 const dataSource = new DataSource(dataSourceOptions);

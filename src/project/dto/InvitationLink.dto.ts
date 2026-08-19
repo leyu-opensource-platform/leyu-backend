@@ -1,3 +1,4 @@
+import { IsInt, Min, Max } from "class-validator";
 import {
   IsString,
   IsEmail,
@@ -10,9 +11,6 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-/* =======================
-   ENUMS
-======================= */
 export enum Role {
   Contributor = 'Contributor',
   Reviewer = 'Reviewer',
@@ -23,11 +21,7 @@ export enum Gender {
   Female = 'Female',
 }
 
-/* =======================
-   INVITATION LINK DTOs
-======================= */
 export class CreateInvitationLinkDto {
-  @IsString()
   @Transform(({ value }) => new Date(value))
   @IsDate()
   expiry_date: Date;
@@ -64,9 +58,6 @@ export class UpdateInvitationLinkDto {
   max_invitations?: number;
 }
 
-/* =======================
-   USER DTO
-======================= */
 export class AcceptInvitationDto {
   @IsString()
   @MinLength(3)
@@ -89,7 +80,11 @@ export class AcceptInvitationDto {
 
   @Transform(({ value }) => new Date(value))
   @IsDate()
-  birth_date: Date;
+  @IsOptional()
+  @IsInt()
+  @Min(12)
+  @Max(120)
+  age?: number;
 
   @IsEnum(Gender)
   gender: Gender;
