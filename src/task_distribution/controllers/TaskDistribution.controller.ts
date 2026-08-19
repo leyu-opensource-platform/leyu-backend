@@ -50,6 +50,7 @@ import { Queue } from 'bullmq';
 import { ReviewerTaskDistributionsService } from '../service/ReviewerTaskDistribution.service';
 import { unlink } from 'fs';
 import { promisify } from 'util';
+import { TaskService } from 'src/project/service/Task.service';
 export const unlinkAsync = promisify(unlink);
 
 @Controller('task-distribution')
@@ -64,6 +65,7 @@ export class TaskDistributionController {
     private readonly getTaskService: GetTasksService,
     private readonly fileService: FileService,
     private readonly audioService: AudioService,
+    private readonly taskService: TaskService,
     private readonly dataSource: DataSource,
     @InjectQueue('file-upload')
     private readonly fileQueue: Queue,
@@ -287,7 +289,21 @@ export class TaskDistributionController {
   @UseInterceptors(
     AnyFilesInterceptor({ storage: multerAudioDiskConfig.storage }),
   )
-  @ApiOperation({ summary: 'Contribute audio files' })
+  @ApiOperation({
+    summary: 'Contribute audio files',
+    description:
+      'Each uploaded recording is validated server-side: its real duration is ' +
+      'read from the audio file itself (never trusted from the client) and ' +
+      "checked against the task's minimum_seconds/maximum_seconds " +
+      'requirements. Empty, corrupt, or out-of-range recordings are ' +
+      'rejected with a 400 response before any data is persisted.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'One or more recordings failed audio validation (empty/corrupt file, ' +
+      'or duration outside the task\u2019s allowed range).',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -310,36 +326,67 @@ export class TaskDistributionController {
       throw new BadRequestException('At least one file is required');
     }
 
-    console.log("Request body ",req.body);
+    console.log('Request body ', req.body);
     const submissions: {
       micro_task_id: string;
       file_path: string;
       audio_duration: any;
     }[] = [];
-    let { is_test, audio_duration } = req.body;
+    let { is_test } = req.body;
     is_test = is_test === 'true' || is_test === true;
-    
-    // Parse audio_duration[micro_task_id] fields sent by the Dart client
-    // Dart sends: audio_duration[some-uuid] = "1.23"
-    const durationMap: Record<string, number> = {};
-    if(req.body.audio_duration){
-      for (const [key, value] of Object.entries(req.body.audio_duration as Record<string, string>)) {
-        const match = key.match(/^audio_duration\[(.+)\]$/);
-        // if (match) {
-          const microTaskId = key;
-          const parsed = parseFloat(value);
-          durationMap[microTaskId] = isNaN(parsed) ? 0 : parsed;
-        // }
-      } 
-    }
-    
+
+    // NOTE: The client (mobile app) may also send an audio_duration[...]
+    // field per recording, but that value is client-reported and is never
+    // trusted for storage or validation. The authoritative duration is
+    // always read from the uploaded file itself, below.
 
     try {
+      // Fetch the task's requirement bounds (minimum/maximum recording
+      // length) so uploaded audio can be checked against them.
+      const task = await this.taskService.findOne({
+        where: { id: task_id },
+        relations: { taskRequirement: true },
+      });
+      const minimumSeconds = task?.taskRequirement?.minimum_seconds;
+      const maximumSeconds = task?.taskRequirement?.maximum_seconds;
+
+      // Validate every uploaded file server-side. We never trust the
+      // client-reported audio_duration on its own: the real duration is
+      // read from the file itself, and empty/corrupt/out-of-range
+      // recordings are rejected before anything is persisted.
+      const validationFailures: {
+        micro_task_id: string;
+        reason: string;
+      }[] = [];
+      const verifiedDurations: Record<string, number> = {};
+
+      for (const file of files) {
+        const result = await this.audioService.validateAudioFile(file.path, {
+          minimumSeconds,
+          maximumSeconds,
+        });
+        if (!result.valid) {
+          validationFailures.push({
+            micro_task_id: file.fieldname,
+            reason: result.reason ?? 'Invalid audio file',
+          });
+        } else {
+          verifiedDurations[file.fieldname] = result.duration;
+        }
+      }
+
+      if (validationFailures.length > 0) {
+        throw new BadRequestException({
+          message: 'Audio validation failed for one or more recordings',
+          failedFiles: validationFailures,
+        });
+      }
+
       for (const file of files) {
         submissions.push({
           micro_task_id: file.fieldname,
           file_path: '',
-          audio_duration: durationMap[file.fieldname] ?? 0
+          audio_duration: verifiedDurations[file.fieldname] ?? 0,
         });
       }
       const data_Sets =
