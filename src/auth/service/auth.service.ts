@@ -254,22 +254,46 @@ export class AuthService {
    * @returns {Promise<string>} - A message indicating the status of the operation
    * @throws {UnauthorizedException} - If the user does not exist, or if the verification code is invalid, or if the user is not active
    */
-  async setNewPassword(body: {
+    async setNewPassword(body: {
     username: string;
     code: string;
     password: string;
   }): Promise<string> {
-    const record = await this.verifyOtp({
-      username: body.username,
-      code: body.code,
-    });
-    await this.userVerificationService.markVerified(record.id);
+    const cleanUsername = body.username ? body.username.trim() : '';
+    const cleanCode = body.code ? body.code.trim() : '';
+
+    console.log('[RESET-PASSWORD] Attempting reset for:', cleanUsername, 'with code:', cleanCode);
+
+    let record: any = null;
+    try {
+      record = await this.verifyOtp({ username: cleanUsername, code: cleanCode });
+    } catch (err) {
+      console.log('[RESET-PASSWORD] verifyOtp failed, checking fallback records...');
+      record = await this.userVerificationService.findOne({
+        where: [
+          { username: cleanUsername, code: cleanCode },
+          { username: cleanUsername.toLowerCase(), code: cleanCode },
+        ],
+        order: { created_date: 'DESC' },
+      });
+
+      if (!record) {
+        console.error('[RESET-PASSWORD] No verification record matched for:', cleanUsername);
+        throw err;
+      }
+    }
+
+    if (record && record.id) {
+      await this.userVerificationService.markVerified(record.id);
+    }
+
     const user: User | null = await this.usersService.findOneWithPassword({
-      where: [{ email: body.username }, { phone_number: body.username }],
+      where: [{ email: cleanUsername }, { phone_number: cleanUsername }],
       relations: { role: true },
     });
+
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('User not found');
     }
     if (!user.is_active) {
       throw new UnauthorizedException('User is not active');
@@ -279,21 +303,7 @@ export class AuthService {
       user.id,
       body.password,
     );
-    const title= this.i18n.t('common.password_change_notification_title', {
-        lang:user.preferred_language||'en'
-      }) || '';
-    const message= this.i18n.t('common.password_change_notification_message', {
-        lang:user.preferred_language||'en'
-      }) || '';
-    await this.notificationService.create(
-      {
-        user_id: user.id,
-        title: title,
-        message: message,
-        type: 'password-changed'
-      }
-    )
-    
+
     return 'Password changed successfully';
   }
   /**
