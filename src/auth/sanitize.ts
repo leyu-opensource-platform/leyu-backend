@@ -59,7 +59,7 @@ export class UserSanitize {
   created_date: Date;
 
   @ApiProperty()
-  birth_date?: Date;
+  age?: number;
 
   @ApiProperty()
   gender?: string;
@@ -130,7 +130,7 @@ export class UserSanitize {
       region: user.region?.name,
       region_id: user.region_id,
       zone_id: user.zone_id,
-      birth_date: user.birth_date,
+      age: user.age,
       gender: user.gender,
       score: userScore ? userScore : user.score?.score,
       kyc_verification_status: user.kyc_verification_status,

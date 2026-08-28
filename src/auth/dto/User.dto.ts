@@ -1,4 +1,4 @@
-import { IsBoolean, MaxLength } from 'class-validator';
+import { IsBoolean, MaxLength , IsInt, Min, Max} from 'class-validator';
 import { PaginationDto } from 'src/common/dto/Pagination.dto';
 
 import {
@@ -51,7 +51,10 @@ export class CreateUserDto {
   @Transform(({ value }) => new Date(value))
   @Type(() => Date)
   @IsDate({ message: 'Invalid date format' })
-  birth_date: Date;
+  @IsInt()
+  @Min(12)
+  @Max(120)
+  age: number;
 
   @ApiProperty({ enum: ['Male', 'Female'] })
   @IsEnum(['Male', 'Female'])
@@ -125,7 +128,10 @@ export class FirstContributorUpdateDto {
   @Type(() => Date)
   // verify birth date and age is greater than 18
   @IsDate({ message: 'Invalid date format' })
-  birth_date: Date;
+  @IsInt()
+  @Min(12)
+  @Max(120)
+  age: number;
 
   @ApiProperty({ enum: ['Male', 'Female'] })
   @IsEnum(['Male', 'Female'])
@@ -195,7 +201,11 @@ export class UpdateProfileDto {
   @Transform(({ value }) => new Date(value))
   @Type(() => Date)
   @IsDate({ message: 'Invalid date format' })
-  birth_date?: Date;
+  @IsOptional()
+  @IsInt()
+  @Min(12)
+  @Max(120)
+  age?: number;
 
   @ApiProperty({ enum: ['Male', 'Female'] })
   @IsOptional()
@@ -527,4 +537,38 @@ export class UserExistDto {
   @ApiPropertyOptional({ description: 'user by phone number' })
   @IsUUID()
   role_id: string;
+}
+
+
+export class EmailRegisterDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(6)
+  password: string;
+
+  @IsString()
+  first_name: string;
+
+  @IsString()
+  @IsOptional()
+  middle_name?: string;
+
+  @IsString()
+  last_name: string;
+
+  @IsInt()
+  @Min(12)
+  @Max(120)
+  age: number;
+
+  @IsString()
+  gender: string;
+
+  @IsUUID()
+  language_id: string;
+
+  @IsUUID()
+  dialect_id: string;
 }
